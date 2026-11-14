@@ -43,7 +43,7 @@ Each page sheet says at its top which of these it is. If you are about to build 
 | `movies.md` | All 561 movie files: pixels, duration, frame rate, frame count, codec, audio, size, Last-Modified, URL. |
 | `pages/<id>.md` | One sheet per SVS page (94): the analysis on top where there is one, the complete raw NASA record underneath. |
 | `doc-review/` | Structured reads of the team's older documents: `spec.md` (the challenge text), `rules.md` (rules and deadline, read against the live 2026 guides), `winners.md` (what wins), `plan.md` (the Phase 1 plan and its assumptions), `other-challenges.md` (the other 13 challenges and fallbacks). |
-| `tools/` | The scripts that produced the script-level files. Standard-library Python, plus ffmpeg, numpy and Pillow for the frame and data-test scripts. |
+| `tools/` | The scripts that produced the script-level files (standard-library Python, plus ffmpeg, numpy and Pillow for the frame and data-test scripts), and two Node scripts that check an Earthsound build by running the site's own code: `seed_audit.mjs` (what each seed's rounds are) and `grid_audit.mjs` (what the Jukebox map plays). |
 
 ## Re-check a claim yourself
 
@@ -86,6 +86,15 @@ python    tools/lightning_dates.py ../notes/feasibility/data/lit labels.txt out.
 
 `<evidence_dir>` is any empty folder. The scripts are polite (cached, a few requests at a time). Please keep them that way:
 NASA started timing out our connections when about 20 ran at once.
+
+## Check an Earthsound build
+
+Two scripts run the site's own JavaScript, so they stay right when that code changes. `<site>` is the folder that holds `js/` and `data/`.
+
+```bash
+node tools/seed_audit.mjs <site>/js/game.js <site>/data/rounds.json 101 110   # each seed's five rounds, and whether one answer dominates
+node tools/grid_audit.mjs <site>/js/sound.js <site>/data/grids.json           # pitches each Jukebox layer uses, share of empty cells, a few named places
+```
 
 ## Things that will bite you (all verified on 2026-11-14)
 
