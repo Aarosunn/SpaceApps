@@ -54,17 +54,31 @@ kick = np.sin(2 * np.pi * (45 * tt(0.25) + (120 - 45) * 0.03 * (1 - np.exp(-tt(0
 snare = (rng.uniform(-1, 1, int(0.18 * SR)) * 0.8 + 0.4 * np.sin(2 * np.pi * 190 * tt(0.18))) * np.exp(-tt(0.18) / 0.05)
 hat = np.diff(rng.uniform(-1, 1, int(0.05 * SR) + 1)) * np.exp(-tt(0.05) / 0.012)       # differenced noise = bright
 drum = lambda sig, t, gain, x=0.5: synth.mix_in(clip, synth.pan(sig, x), t, gain=gain)
-c_lead, c_bars = [], []
+c_lead, c_bars, c_motifs = [], [], []
 for b in range(n_bars):
     t0 = b * BAR
     # bass + pad: the bar's average temperature
-    bm = mk.quantize((bar_mean[b] - b_lo) / (b_hi - b_lo), BASS_ROOT, octaves=1)
+    warm = float((bar_mean[b] - b_lo) / (b_hi - b_lo))          # 0 = coolest bar of the clip, 1 = warmest
+    bm = mk.quantize(warm, BASS_ROOT, octaves=2)                # 11 steps over two octaves: about 0.6 C per step
     for off, dur, g in ((0.0, 0.7, 0.55), (0.75, 0.2, 0.4), (1.0, 0.45, 0.5), (1.75, 0.2, 0.4)):
         synth.mix_in(clip, synth.pan(synth.voice(mk.midi_to_hz(bm), dur, harmonics=3, decay=0.2, sustain=0.5), 0.5), t0 + off, gain=g)
     for m in mk.chord(bm + 12, 'power'):
-        synth.mix_in(clip, synth.pan(synth.voice(mk.midi_to_hz(m), BAR, harmonics=2, attack=0.3, release=0.5), 0.5), t0, gain=0.04)
+        # the held chord swells and brightens as the whole view warms, so the arc of the clip is audible
+        synth.mix_in(clip, synth.pan(synth.voice(mk.midi_to_hz(m), BAR, harmonics=1 + int(round(6 * warm)), attack=0.3, release=0.5), 0.5),
+                     t0, gain=0.03 + 0.09 * warm)
+    # every 4 bars a two-note bell: THEN (the first bar's average) and NOW (this bar's average)
+    then_now = b % 4 == 0 and b > 0
+    if then_now:
+        for off, w in ((0.0, float((bar_mean[0] - b_lo) / (b_hi - b_lo))), (0.5, warm)):
+            f = mk.midi_to_hz(mk.quantize(w, 69, octaves=2))
+            bell = (np.sin(2 * np.pi * f * tt(0.9)) + 0.5 * np.sin(2 * np.pi * 2 * f * tt(0.9)) + 0.25 * np.sin(2 * np.pi * 3.01 * f * tt(0.9))) * np.exp(-tt(0.9) / 0.22)
+            synth.mix_in(clip, synth.pan(bell, 0.5), t0 + off, gain=0.33)
+        c_motifs.append({'t': t0, 'then': mk.note_name(mk.quantize(float((bar_mean[0] - b_lo) / (b_hi - b_lo)), 69, octaves=2)),
+                         'now': mk.note_name(mk.quantize(warm, 69, octaves=2)), 'then_C': round(32 * float(bar_mean[0]), 1),
+                         'now_C': round(32 * float(bar_mean[b]), 1)})
     # drums: fixed kick and snare, data-driven hi-hat density
-    synth.mix_in(clip, synth.pan(synth.voice(mk.midi_to_hz(REF), 0.12, harmonics=1), 0.5), t0, gain=0.22)   # reference tone
+    if not then_now:
+        synth.mix_in(clip, synth.pan(synth.voice(mk.midi_to_hz(REF), 0.12, harmonics=1), 0.5), t0, gain=0.22)   # reference tone
     for off in (0.0, 1.0):
         drum(kick, t0 + off, 0.9)
     for off in (0.5, 1.5):
@@ -86,9 +100,10 @@ for b in range(n_bars):
         m = mk.quantize(u, LEAD_ROOT, octaves=LEAD_OCT)
         # the same value also sets tone colour and loudness: warm = bright and strong, cold = dull and soft
         synth.mix_in(clip, synth.pan(synth.voice(mk.midi_to_hz(m), EIGHTH * 1.5, harmonics=1 + int(round(9 * u))), 0.15 + 0.7 * c / (GC - 1)),
-                     t, gain=0.4 + 0.3 * u)
+                     t, gain=(0.4 + 0.3 * u) * (0.45 if then_now and i < 4 else 1.0))   # make room for the bell
         c_lead.append({'t': round(t, 3), 'col': c, 'C': round(32 * float(v), 1), 'note': mk.note_name(m), 'midi': m})
     c_bars.append({'t': t0, 'bass': mk.note_name(bm), 'mean_C': round(32 * float(bar_mean[b]), 1), 'hats': k,
+                   'since_start_C': round(32 * float(bar_mean[b] - bar_mean[0]), 1),
                    'dir': 'west to east' if b % 2 == 0 else 'east to west'})
 wavio.write_wav(f'{out}/clip_song.wav', synth.reverb(clip, rt60=0.9, wet=0.12))
 wavio.check_wav(f'{out}/clip_song.wav', channels=2)
@@ -98,7 +113,7 @@ with open(f'{out}/clip_song.json', 'w') as fh:
                         'bass_range_C': [round(32 * float(b_lo), 1), round(32 * float(b_hi), 1)],
                         'scale': [{'midi': m, 'name': mk.note_name(m)} for m in mk.scale_notes(LEAD_ROOT, 'pentatonic_major', LEAD_OCT)],
                         'reference_note': mk.note_name(REF), 'reference_C': round(16 * float(m_lo + m_hi), 1)},
-               'lead': c_lead, 'bars': c_bars,
+               'lead': c_lead, 'bars': c_bars, 'motifs': c_motifs,
                'frames': [{'t': f['t'], 'grid': [round(32 * g, 1) for g in f['grid']]} for f in frames]}, fh, separators=(',', ':'))
 print(f"clip song: {len(clip) / SR:.1f} s, {n_bars} bars, {len(c_lead)} melody notes using {len(set(n['note'] for n in c_lead))} different pitches; "
       f"bass notes used {sorted(set(x['bass'] for x in c_bars))}; hi-hat hits per bar {min(x['hats'] for x in c_bars)}..{max(x['hats'] for x in c_bars)}")

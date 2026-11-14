@@ -12,6 +12,7 @@
   video, #frame, #over { display: block; width: 100%; }
   #frame { image-rendering: pixelated; }
   #over, .ov { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  #arc { display: block; width: 100%; height: 110px; background: #1b1b1b; margin-top: 6px; }
   #roll { display: block; width: 100%; height: 170px; background: #1b1b1b; }
   #cnow { font-size: 1.05em; margin: 8px 0; min-height: 3em; }
   audio { width: 100%; margin-top: 6px; }
@@ -31,11 +32,13 @@
   <canvas id="cover" class="ov"></canvas>
 </div>
 <audio id="clip" controls src="clip_song.wav"></audio>
+<canvas id="arc" aria-label="Chart of the whole clip: the average ocean temperature in view for each 2-second bar, with a marker for now and dots where the then-and-now bell plays."></canvas>
 <p id="cnow" role="status" aria-live="off">Loading.</p>
 <canvas id="roll" aria-label="Scrolling chart of the melody: time runs left to right, higher notes are drawn higher, the white line is now, vertical lines are bar starts."></canvas>
 <ul>
   <li><span class="k" style="background:#ffd23f"></span><strong>Melody = the yellow column.</strong> Every 2-second bar scans the eight columns of the picture, one eighth note each: west to east, then back east to west. Pitch is that column's mean ocean temperature: 16 notes from A3 (12 &deg;C or colder) to A6 (28 &deg;C or warmer), about 1 &deg;C per step. Warm notes are also brighter and louder, cold notes duller and softer, and the note sits left or right like the column does.</li>
-  <li><span class="k" style="background:#fff"></span><strong>Bass = the white frame.</strong> One root note per bar from the average temperature of the whole view (17 to 24 &deg;C). It rises as the view warms.</li>
+  <li><span class="k" style="background:#ff8c42"></span><strong>The whole clip at a glance = the orange line.</strong> It is the average ocean temperature in view, bar by bar. In sound it is the bass and the held chord: the bass climbs two octaves as the view warms (about 0.6 &deg;C per step) and the chord gets louder and brighter. In this clip the average in view rises from about 18 to 24 &deg;C by the middle, then falls back. The camera moves during the clip, so this is a change in what is in view, not the ocean warming over time.</li>
+  <li><span class="k" style="background:#7ee081"></span><strong>Then and now = two bell notes every 8 seconds.</strong> The first bell is always the temperature at the start of the clip; the second is the temperature now. A wide gap between them means a big change since the start; the same note twice means no change.</li>
   <li><strong>Reference tone:</strong> a soft pure E5 at the start of every bar marks 20 &deg;C, the middle of the range. Melody notes above it are warmer, below it cooler.</li>
   <li><strong>Hi-hat = how fast the picture is changing.</strong> 8 to 12 hits per bar.</li>
   <li><strong>Kick and snare never change.</strong> They are the ruler: one bar is 2 seconds of the movie.</li>
@@ -111,8 +114,31 @@
         g.fillRect(x, H - (idx.get(m.midi) + 0.5) * rowH - rowH * 0.36, Math.max(2, E * pxs * 0.85), rowH * 0.72);
       }
       g.fillStyle = '#fff'; g.fillRect(x0 - k, 0, 2 * k, H);
-      if (playing) cnow.textContent = (on ? 'Melody: column ' + (n.col + 1) + ' of ' + COLS + ' is ' + n.C.toFixed(1) + ' °C, so ' + n.note + ' (' + (n.C > cs.meta.reference_C + 0.5 ? 'warmer than' : n.C < cs.meta.reference_C - 0.5 ? 'cooler than' : 'about') + ' the ' + cs.meta.reference_C + ' °C reference). ' : 'Melody: rest. ') +
-        'This bar scans ' + bar.dir + '. Bass ' + bar.bass + ' = whole view averages ' + bar.mean_C.toFixed(1) + ' °C. Hi-hat ' + bar.hats + ' hits = change in the picture.';
+
+      // whole-clip chart: one point per bar, playhead, bell markers
+      const arc = $('arc'); k = fit(arc); g = arc.getContext('2d'); W = arc.width; H = arc.height;
+      g.clearRect(0, 0, W, H);
+      const vals = cs.bars.map((x) => x.mean_C), vlo = Math.min(...vals), vhi = Math.max(...vals), total = cs.bars.length * BAR;
+      const X = (sec) => 34 * k + (W - 44 * k) * sec / total, Y = (c) => H - 16 * k - (H - 34 * k) * (c - vlo) / (vhi - vlo);
+      g.font = (11 * k) + 'px system-ui, sans-serif'; g.textBaseline = 'middle'; g.textAlign = 'left'; g.fillStyle = '#888';
+      g.fillText(vhi.toFixed(0) + '°C', 3 * k, Y(vhi)); g.fillText(vlo.toFixed(0) + '°C', 3 * k, Y(vlo));
+      g.strokeStyle = '#555'; g.lineWidth = k; g.setLineDash([4 * k, 4 * k]);
+      g.beginPath(); g.moveTo(X(0), Y(vals[0])); g.lineTo(X(total), Y(vals[0])); g.stroke(); g.setLineDash([]);   // the level at the start
+      g.strokeStyle = '#ff8c42'; g.lineWidth = 2.5 * k; g.beginPath();
+      vals.forEach((c, b) => { const x = X((b + 0.5) * BAR); if (b) g.lineTo(x, Y(c)); else g.moveTo(x, Y(c)); }); g.stroke();
+      g.fillStyle = '#7ee081';
+      for (const m of cs.motifs) { g.beginPath(); g.arc(X(m.t), Y(m.now_C), 4 * k, 0, 6.3); g.fill(); }
+      const bi = Math.min(cs.bars.length - 1, Math.floor(t / BAR));
+      g.fillStyle = '#fff'; g.fillRect(X(Math.min(t, total)) - k, 0, 2 * k, H);
+      g.beginPath(); g.arc(X(Math.min(t, total)), Y(vals[bi]), 5 * k, 0, 6.3); g.fill();
+      g.fillStyle = '#888'; g.textAlign = 'right'; g.fillText('dashed = level at the start', W - 6 * k, 9 * k);
+
+      const d0 = bar.since_start_C, bell = cs.motifs.find((m) => t >= m.t && t < m.t + 1);
+      if (playing) cnow.textContent = 'Whole view now ' + bar.mean_C.toFixed(1) + ' °C: ' +
+        (Math.abs(d0) < 0.3 ? 'about the same as' : Math.abs(d0).toFixed(1) + ' °C ' + (d0 > 0 ? 'warmer than' : 'cooler than')) + ' the start. ' +
+        (bell ? 'BELLS: then ' + bell.then + ' (' + bell.then_C + ' °C), now ' + bell.now + ' (' + bell.now_C + ' °C). ' : '') +
+        (on ? 'Melody: column ' + (n.col + 1) + ' of ' + COLS + ' is ' + n.C.toFixed(1) + ' °C, so ' + n.note + ' (' + (n.C > cs.meta.reference_C + 0.5 ? 'warmer than' : n.C < cs.meta.reference_C - 0.5 ? 'cooler than' : 'about') + ' the ' + cs.meta.reference_C + ' °C reference). ' : 'Melody: rest. ') +
+        'Bass ' + bar.bass + '. Hi-hat ' + bar.hats + ' hits.';
       requestAnimationFrame(drawClip);
     })();
   }
