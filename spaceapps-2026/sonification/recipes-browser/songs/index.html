@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Two songs from SVS 3912</title>
+<style>
+  body { font: 15px/1.45 system-ui, sans-serif; max-width: 900px; margin: 0 auto; padding: 12px; background: #111; color: #eee; }
+  h1 { font-size: 1.3em; margin: 0 0 6px; }
+  h2 { font-size: 1.15em; margin: 18px 0 4px; border-top: 1px solid #444; padding-top: 12px; }
+  .stage { position: relative; }
+  video, #frame, #over { display: block; width: 100%; }
+  #frame { image-rendering: pixelated; }
+  #over, .ov { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  #roll { display: block; width: 100%; height: 170px; background: #1b1b1b; }
+  #cnow { font-size: 1.05em; margin: 8px 0; min-height: 3em; }
+  audio { width: 100%; margin-top: 6px; }
+  #now { font-size: 1.05em; margin: 8px 0; min-height: 3em; }
+  .k { display: inline-block; width: 12px; height: 12px; vertical-align: -1px; margin-right: 4px; }
+  ul { padding-left: 18px; margin: 6px 0; }
+  a { color: #8cc8ff; }
+</style>
+</head>
+<body>
+<h1>Two songs from one NASA visualization</h1>
+<p>Both are made from NASA SVS 3912 (sea surface temperature, eastern North America and the Gulf Stream). Every sound is synthesized from numbers read off the pixels; there are no samples and no recordings.</p>
+
+<h2>Song 1: from a clip (the whole movie, 69 seconds)</h2>
+<div class="stage">
+  <video id="v" src="clip.webm" muted playsinline aria-label="The movie the song was made from. It is muted; the song plays from the audio control below."></video>
+  <canvas id="cover" class="ov"></canvas>
+</div>
+<audio id="clip" controls src="clip_song.wav"></audio>
+<p id="cnow" role="status" aria-live="off">Loading.</p>
+<canvas id="roll" aria-label="Scrolling chart of the melody: time runs left to right, higher notes are drawn higher, the white line is now, vertical lines are bar starts."></canvas>
+<ul>
+  <li><span class="k" style="background:#ffd23f"></span><strong>Melody = the yellow column.</strong> Every 2-second bar scans the eight columns of the picture, one eighth note each: west to east, then back east to west. Pitch is that column's mean ocean temperature: 16 notes from A3 (12 &deg;C or colder) to A6 (28 &deg;C or warmer), about 1 &deg;C per step. Warm notes are also brighter and louder, cold notes duller and softer, and the note sits left or right like the column does.</li>
+  <li><span class="k" style="background:#fff"></span><strong>Bass = the white frame.</strong> One root note per bar from the average temperature of the whole view (17 to 24 &deg;C). It rises as the view warms.</li>
+  <li><strong>Reference tone:</strong> a soft pure E5 at the start of every bar marks 20 &deg;C, the middle of the range. Melody notes above it are warmer, below it cooler.</li>
+  <li><strong>Hi-hat = how fast the picture is changing.</strong> 8 to 12 hits per bar.</li>
+  <li><strong>Kick and snare never change.</strong> They are the ruler: one bar is 2 seconds of the movie.</li>
+  <li><strong>Numbers</strong> on the picture are the temperature (&deg;C) read from each of the 4 x 8 cells; a dash is land.</li>
+</ul>
+
+<h2>Song 2: from a single frame (18 seconds)</h2>
+<div class="stage">
+  <img id="frame" src="frame.bmp" width="684" height="384" alt="One frame of the movie: dark grey land on the left; ocean coloured from blue (cold, north) to orange (warm, south).">
+  <canvas id="over"></canvas>
+</div>
+<audio id="single" controls src="single_frame_song.wav"></audio>
+<p id="now" role="status" aria-live="off">Loading.</p>
+<ul>
+  <li><span class="k" style="background:#5fb0e0"></span><strong>Blue rows = chord.</strong> First 4 seconds: eight strips, top to bottom, one note each. They are then held quietly underneath.</li>
+  <li><span class="k" style="background:#ffd23f"></span><strong>Yellow column = melody.</strong> Next 10 seconds: forty strips, left to right, one note each, moving from the left ear to the right.</li>
+  <li><span class="k" style="background:#aaa"></span><strong>Grey column = land.</strong> The melody rests, and a short tick marks each coastline crossing.</li>
+  <li><strong>Reference tone:</strong> a soft note every 2 seconds at the frame's average temperature, so you can hear "warmer than average" and "cooler than average".</li>
+</ul>
+
+<script>
+(async function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id), v = $('v'), clip = $('clip'), single = $('single'), over = $('over'), now = $('now');
+
+  // ----- song 1: the muted movie follows the song -----
+  clip.addEventListener('play', () => { single.pause(); v.currentTime = clip.currentTime; v.play().catch(() => {}); });
+  clip.addEventListener('pause', () => v.pause());
+  clip.addEventListener('seeked', () => { v.currentTime = Math.min(clip.currentTime, v.duration || 0); });
+  single.addEventListener('play', () => clip.pause());
+  setInterval(() => {                                              // pull the picture back if it drifts
+    if (!clip.paused && v.duration && clip.currentTime < v.duration && Math.abs(v.currentTime - clip.currentTime) > 0.25) v.currentTime = clip.currentTime;
+  }, 500);
+
+  // ----- song 1: draw where each melody note is read -----
+  const fit = (c) => { const r = c.getBoundingClientRect(), k = devicePixelRatio || 1; if (c.width !== Math.round(r.width * k) || c.height !== Math.round(r.height * k)) { c.width = Math.round(r.width * k); c.height = Math.round(r.height * k); } return k; };
+  const at = (arr, t) => { let lo = 0, hi = arr.length - 1; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (arr[m].t <= t) lo = m; else hi = m - 1; } return lo; };
+  let cs = null;
+  try { cs = await (await fetch('clip_song.json')).json(); }
+  catch (e) { $('cnow').textContent = 'Could not load clip_song.json: ' + e.message; }
+  if (cs) {
+    const cover = $('cover'), roll = $('roll'), cnow = $('cnow'), ROWS = cs.meta.grid[0], COLS = cs.meta.grid[1], E = cs.meta.eighth_s, BAR = cs.meta.bar_s;
+    const idx = new Map(cs.meta.scale.map((x, i) => [x.midi, i])), N = cs.meta.scale.length;
+    cnow.textContent = 'Ready. ' + cs.lead.length + ' melody notes over ' + cs.bars.length + ' bars, ' + cs.meta.bpm + ' beats per minute, ' + cs.meta.key + '.';
+    (function drawClip() {
+      const t = clip.currentTime, playing = !clip.paused && !clip.ended;
+      const i = at(cs.lead, t), n = cs.lead[i], on = playing && t >= n.t && t < n.t + E;
+      const bar = cs.bars[Math.min(cs.bars.length - 1, Math.floor(t / BAR))], f = cs.frames[at(cs.frames, t)];
+      const beatAge = (t % (BAR / 4)) / (BAR / 4), pulse = playing ? Math.max(0, 1 - beatAge * 3) : 0;
+      let k = fit(cover), g = cover.getContext('2d'), W = cover.width, H = cover.height, cw = W / COLS, ch = H / ROWS;
+      g.clearRect(0, 0, W, H);
+      if (on) { g.fillStyle = 'rgba(255,210,63,0.22)'; g.fillRect(n.col * cw, 0, cw, H); g.strokeStyle = '#ffd23f'; g.lineWidth = 3 * k; g.strokeRect(n.col * cw + k, k, cw - 2 * k, H - 2 * k); }
+      g.lineWidth = k; g.strokeStyle = 'rgba(255,255,255,0.25)'; g.font = (12 * k) + 'px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+        g.strokeRect(c * cw, r * ch, cw, ch);
+        const val = f.grid[r * COLS + c];
+        g.fillStyle = 'rgba(0,0,0,0.55)'; g.fillRect(c * cw + cw / 2 - 19 * k, r * ch + ch / 2 - 9 * k, 38 * k, 18 * k);
+        g.fillStyle = '#fff'; g.fillText(val > 0 ? val.toFixed(1) : '-', c * cw + cw / 2, r * ch + ch / 2);
+      }
+      g.strokeStyle = 'rgba(255,255,255,' + (0.2 + 0.8 * pulse) + ')'; g.lineWidth = (2 + 5 * pulse) * k; g.strokeRect(2 * k, 2 * k, W - 4 * k, H - 4 * k);
+
+      k = fit(roll); g = roll.getContext('2d'); W = roll.width; H = roll.height;
+      g.clearRect(0, 0, W, H);
+      const SPAN = 8, x0 = W * 0.3, pxs = W / SPAN, rowH = H / N;
+      g.font = (11 * k) + 'px system-ui, sans-serif'; g.textBaseline = 'middle'; g.textAlign = 'left';
+      for (let q = 0; q < N; q++) { const y = H - (q + 0.5) * rowH; g.fillStyle = q % 2 ? '#222' : '#1b1b1b'; g.fillRect(0, y - rowH / 2, W, rowH); g.fillStyle = '#888'; g.fillText(cs.meta.scale[q].name, 4 * k, y); }
+      g.fillStyle = '#444';
+      for (let b = Math.floor((t - 3) / BAR); b * BAR < t + SPAN; b++) if (b >= 0) g.fillRect(x0 + (b * BAR - t) * pxs, 0, k, H);
+      for (let j = Math.max(0, i - 12); j < cs.lead.length; j++) {
+        const m = cs.lead[j], x = x0 + (m.t - t) * pxs;
+        if (x > W) break;
+        g.fillStyle = (j === i && on) ? '#ffd23f' : (m.t < t ? '#3d6f8f' : '#5fb0e0');
+        g.fillRect(x, H - (idx.get(m.midi) + 0.5) * rowH - rowH * 0.36, Math.max(2, E * pxs * 0.85), rowH * 0.72);
+      }
+      g.fillStyle = '#fff'; g.fillRect(x0 - k, 0, 2 * k, H);
+      if (playing) cnow.textContent = (on ? 'Melody: column ' + (n.col + 1) + ' of ' + COLS + ' is ' + n.C.toFixed(1) + ' °C, so ' + n.note + ' (' + (n.C > cs.meta.reference_C + 0.5 ? 'warmer than' : n.C < cs.meta.reference_C - 0.5 ? 'cooler than' : 'about') + ' the ' + cs.meta.reference_C + ' °C reference). ' : 'Melody: rest. ') +
+        'This bar scans ' + bar.dir + '. Bass ' + bar.bass + ' = whole view averages ' + bar.mean_C.toFixed(1) + ' °C. Hi-hat ' + bar.hats + ' hits = change in the picture.';
+      requestAnimationFrame(drawClip);
+    })();
+  }
+
+  // ----- song 2: draw where each note is read -----
+  let d;
+  try { d = await (await fetch('single_frame_song.json')).json(); }
+  catch (e) { now.textContent = 'Could not load single_frame_song.json: ' + e.message; return; }
+  const M = d.meta, ev = d.events;
+  now.textContent = 'Ready. Key: ' + M.key + '. Frame average ' + M.frame_mean_C + ' °C.';
+
+  function draw() {
+    const k = fit(over), g = over.getContext('2d'), W = over.width, H = over.height, t = single.currentTime;
+    g.clearRect(0, 0, W, H);
+    if (!single.paused && !single.ended) {
+      const rh = H / M.rows, cw = W / M.cols, said = [];
+      const live = ev.filter((e) => t >= e.t && t < e.t + e.dur);
+      for (const e of live) {
+        if (e.track === 'intro' || e.track === 'bed') {
+          g.fillStyle = e.track === 'intro' ? 'rgba(95,176,224,0.38)' : 'rgba(95,176,224,0.07)';
+          g.fillRect(0, e.region.row * rh, W, rh);
+          if (e.track === 'intro') { g.strokeStyle = '#5fb0e0'; g.lineWidth = 2 * k; g.strokeRect(k, e.region.row * rh + k, W - 2 * k, rh - 2 * k); said.push('Strip ' + (e.region.row + 1) + ' of ' + M.rows + ' from the top: ' + e.C + ' °C becomes ' + e.note + '.'); }
+        } else if (e.track === 'lead') {
+          g.fillStyle = 'rgba(255,210,63,0.3)'; g.fillRect(e.region.col * cw, 0, cw, H);
+          g.strokeStyle = '#ffd23f'; g.lineWidth = 2 * k; g.strokeRect(e.region.col * cw, k, cw, H - 2 * k);
+        } else if (e.track === 'ref') {
+          g.strokeStyle = 'rgba(255,255,255,0.8)'; g.lineWidth = 3 * k; g.strokeRect(2 * k, 2 * k, W - 4 * k, H - 4 * k);
+        }
+      }
+      if (t >= M.intro_s && t < M.intro_s + M.melody_s) {            // melody section: say what the current strip is
+        const j = Math.floor((t - M.intro_s) / (M.melody_s / M.cols)), e = ev.find((x) => x.track === 'lead' && x.region.col === j);
+        if (e) said.push('Strip ' + (j + 1) + ' of ' + M.cols + ' from the left: ' + e.C + ' °C becomes ' + e.note + '. Chord held underneath.');
+        else { g.fillStyle = 'rgba(160,160,160,0.35)'; g.fillRect(j * cw, 0, cw, H); said.push('Strip ' + (j + 1) + ' of ' + M.cols + ' from the left: land, so the melody rests.'); }
+      } else if (t >= M.intro_s + M.melody_s) said.push('Ending: the eight-strip chord alone.');
+      now.textContent = said.join(' ');
+    }
+    requestAnimationFrame(draw);
+  }
+  requestAnimationFrame(draw);
+})();
+</script>
+</body>
+</html>

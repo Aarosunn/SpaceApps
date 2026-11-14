@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>J2 Live probe - Earth Information Jukebox recipe</title>
+<style>
+  body { font: 1rem/1.5 system-ui, sans-serif; max-width: 52rem; margin: 1rem auto; padding: 0 1rem; color: #111; background: #fff; }
+  canvas { display: block; width: 100%; max-width: 640px; height: auto; background: #000; touch-action: none; cursor: crosshair; }
+  button, select, input { font: inherit; }
+  button { padding: 0.5rem 0.9rem; }
+  :focus-visible { outline: 3px solid #1a5fb4; outline-offset: 3px; }
+  #map:focus-visible { outline-width: 5px; outline-offset: 5px; }
+  .row { display: flex; flex-wrap: wrap; gap: 0.5rem 1.2rem; align-items: center; margin: 0.7rem 0; }
+</style>
+</head>
+<body>
+<h1>J2 - Live probe</h1>
+<p id="status" role="status" aria-live="polite">Loading...</p>
+<p id="help">Move the probe over the map to hear the value under it. A higher note means a higher value, and the sound moves
+left and right with the probe. Keyboard: put the focus on the map, then use the arrow keys (hold Shift for bigger steps),
+Home and End for the left and right edge, Page Up and Page Down for the top and bottom, Space to repeat the reading,
+and R for the reference tones. A short hiss means there is no data at that spot.</p>
+
+<canvas id="map" width="640" height="320" tabindex="0" role="application" aria-label="Sound map" aria-describedby="help"></canvas>
+<p id="now" aria-hidden="true">&nbsp;</p>
+<p id="live" role="status" aria-live="polite"></p>
+
+<div class="row">
+  <button id="ref" type="button">Play reference tones: low, middle, high</button>
+  <label>Value from
+    <select id="mode">
+      <option value="legend">colour legend</option>
+      <option value="brightness">brightness</option>
+    </select>
+  </label>
+  <label><input id="timbre" type="checkbox" checked> Brighter sound for higher values</label>
+  <label>Volume <input id="vol" type="range" min="0" max="100" value="70"></label>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/tone@15.1.22/build/Tone.js"
+        integrity="sha384-NWoslxaf/3dYwQk+uGziDYJFdsjBpVlU1WpFRexuDFcIk/5PJpCbpVXia2Uikeix" crossorigin="anonymous"></script>
+<script src="sonify-core.js"></script>
+<script>
+(function () {
+  'use strict';
+  const core = SonifyCore, $ = (id) => document.getElementById(id);
+  const say = (msg) => { $('status').textContent = msg; };
+  const q = new URLSearchParams(location.search);
+  const cv = $('map'), g = cv.getContext('2d', { willReadFrequently: true }), W = cv.width, H = cv.height;
+  const NOTES = core.buildScale(48, 'majorPentatonic', 3);   // C3..C6, 16 notes
+  const NO_DATA_DIST = 40;                                   // RGB distance beyond which a pixel is "not a legend colour"
+  const STEP = 8;                                            // pixels per arrow-key press (Shift: 4 times as far)
+  const valueRange = [+(q.get('min') || 0), +(q.get('max') || 1)], unit = q.get('unit') || '';
+  let pixels = null, stops = null, pos = { x: W >> 1, y: H >> 1 }, idx = null, voice = null, audioReady = null, liveTimer = null;
+  if (typeof Tone === 'undefined') { say('Tone.js did not load. Check the network, or serve a local copy of Tone.js.'); return; }
+
+  // ----- picture: the built-in demo image, or ?image=path for a file served from this site -----
+  function ready(legendStops) {
+    try { pixels = g.getImageData(0, 0, W, H); }             // throws SecurityError on a tainted canvas
+    catch (err) {
+      say(err.name === 'SecurityError'
+        ? 'This image comes from another origin without CORS permission, so the browser will not let this page read its pixels. Put a copy of the image next to this page.'
+        : 'Could not read the image: ' + err.message);
+      return;
+    }
+    const L = (q.get('legend') || '').split(',').map(Number);   // ?legend=x0,y0,x1,y1: ends of the colour bar as fractions of the image
+    stops = legendStops || (L.length === 4 && L.every((v) => v >= 0 && v <= 1) ? core.sampleLegend(pixels.data, W, H, L[0], L[1], L[2], L[3], 64) : null);
+    if (!stops) { $('mode').value = 'brightness'; $('mode').options[0].disabled = true; }
+    draw();
+    say('Ready. Click the map, or focus it and press an arrow key, to start the sound.');
+  }
+  if (q.get('image')) {
+    const im = new Image();
+    if (q.get('cors')) im.crossOrigin = 'anonymous';         // only for servers that allow this site with Access-Control-Allow-Origin
+    im.onload = () => { g.drawImage(im, 0, 0, W, H); ready(null); };
+    im.onerror = () => say('Could not load the image ' + q.get('image') + '.');
+    im.src = q.get('image');
+  } else {
+    const img = g.createImageData(W, H);
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const v = core.demoField(x / (W - 1), y / (H - 1)), c = v === null ? core.DEMO_LAND : core.rampColor(v, core.DEMO_RAMP);
+        img.data.set([c[0], c[1], c[2], 255], 4 * (y * W + x));
+      }
+    }
+    g.putImageData(img, 0, 0);
+    ready(core.DEMO_RAMP);
+  }
+  function draw() {                                          // picture + a two-tone ring that shows on any colour
+    g.putImageData(pixels, 0, 0);
+    for (const [width, colour] of [[5, '#000'], [2, '#fff']]) {
+      g.lineWidth = width; g.strokeStyle = colour;
+      g.beginPath(); g.arc(pos.x, pos.y, 11, 0, 2 * Math.PI); g.stroke();
+    }
+  }
+
+  // ----- sound: one sustained voice -> low-pass filter (brightness) -> panner (left-right) -> gain -> limiter -----
+  const volumeGain = () => Math.pow(+$('vol').value / 100, 2);
+  async function startAudio() {
+    if (navigator.audioSession) navigator.audioSession.type = 'playback';   // iOS 17+: stay audible with the ring switch on silent
+    await Tone.start();
+    const limiter = new Tone.Limiter({ threshold: -3 }).toDestination();
+    const master = new Tone.Gain({ gain: volumeGain() }).connect(limiter);
+    const pan = new Tone.Panner({ pan: 0 }).connect(master);
+    const filter = new Tone.Filter({ frequency: 1500, type: 'lowpass' }).connect(pan);
+    const synth = new Tone.Synth({ oscillator: { type: 'sawtooth' }, envelope: { attack: 0.02, decay: 0.1, sustain: 0.7, release: 0.25 } }).connect(filter);
+    synth.portamento = 0.03; synth.volume.value = -8;        // 30 ms glide between notes while the probe moves
+    const ref = new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { attack: 0.01, decay: 0.1, sustain: 0.6, release: 0.1 } }).connect(master);
+    ref.volume.value = -10;
+    const hiss = new Tone.NoiseSynth({ envelope: { attack: 0.005, decay: 0.08, sustain: 0 } }).connect(master);
+    hiss.volume.value = -20;
+    voice = { master, pan, filter, synth, ref, hiss, held: false, release: null, hissAt: -1, refUntil: -1 };
+  }
+  const ensureAudio = () => (audioReady = audioReady || startAudio().catch((err) => say('Audio could not start: ' + err.message)));
+
+  function sound(reading) {
+    const now = Tone.immediate();
+    clearTimeout(voice.release);
+    if (reading.noData) {
+      if (voice.held) { voice.synth.triggerRelease(now); voice.held = false; }
+      if (now - voice.hissAt > 0.2) { voice.hiss.triggerAttack(now); voice.hissAt = now; }
+      return;
+    }
+    const hz = core.midiToFreq(NOTES[idx]);
+    voice.pan.pan.setTargetAtTime(core.panFromX(pos.x / (W - 1)), now, 0.02);
+    voice.filter.frequency.setTargetAtTime($('timbre').checked ? core.scaleExp(reading.u, 500, 6000) : 2500, now, 0.03);
+    if (voice.held) voice.synth.setNote(hz, now);
+    else { voice.synth.triggerAttack(hz, now, 0.8); voice.held = true; }
+    voice.release = setTimeout(() => { voice.synth.triggerRelease(Tone.immediate()); voice.held = false; }, 900);   // falls silent 0.9 s after the last move
+  }
+  function playReference() {
+    if (!voice) return;
+    const now = Tone.immediate();
+    if (now < voice.refUntil) return;
+    [0, NOTES.length >> 1, NOTES.length - 1].forEach((k, j) => voice.ref.triggerAttackRelease(core.midiToFreq(NOTES[k]), 0.25, now + 0.05 + 0.45 * j, 0.7));
+    voice.refUntil = now + 1.6;
+    announce('Reference tones: lowest value, middle value, highest value.');
+  }
+
+  // ----- probe -----
+  function announce(text) {                                  // debounced: a screen reader gets one sentence when the movement settles
+    clearTimeout(liveTimer);
+    $('live').textContent = '';
+    liveTimer = setTimeout(() => { $('live').textContent = text; }, 350);
+  }
+  function moveTo(x, y) {
+    if (!pixels) return;
+    pos = { x: Math.round(core.clamp(x, 0, W - 1)), y: Math.round(core.clamp(y, 0, H - 1)) };
+    const useLegend = stops && $('mode').value === 'legend';
+    const reading = core.readPixel(pixels.data, W, pos.x, pos.y, useLegend ? stops : null, NO_DATA_DIST);
+    if (!reading.noData) idx = core.stickyIndex(idx, reading.u, NOTES.length);
+    draw();
+    if (voice) sound(reading);
+    const text = core.describeReading(pos.x, pos.y, W, H, reading, valueRange, unit, NOTES[idx === null ? 0 : idx]);
+    $('now').textContent = text;
+    announce(text);
+  }
+  const toCanvas = (e) => { const b = cv.getBoundingClientRect(); return [(e.clientX - b.left) * W / b.width, (e.clientY - b.top) * H / b.height]; };
+  cv.addEventListener('pointerdown', (e) => { const p = toCanvas(e); cv.focus(); ensureAudio().then(() => moveTo(p[0], p[1])); });
+  cv.addEventListener('pointermove', (e) => { const p = toCanvas(e); moveTo(p[0], p[1]); });
+  cv.addEventListener('keydown', (e) => {
+    const next = core.moveProbe(pos, e.key, e.shiftKey, W, H, STEP);
+    if (next) { e.preventDefault(); ensureAudio().then(() => moveTo(next.x, next.y)); }
+    else if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); ensureAudio().then(() => moveTo(pos.x, pos.y)); }
+    else if (e.key === 'r' || e.key === 'R') ensureAudio().then(playReference);
+  });
+  $('ref').addEventListener('click', () => ensureAudio().then(playReference));
+  $('mode').addEventListener('change', () => moveTo(pos.x, pos.y));
+  $('vol').addEventListener('input', () => { if (voice) voice.master.gain.setTargetAtTime(volumeGain(), Tone.immediate(), 0.03); });
+})();
+</script>
+</body>
+</html>

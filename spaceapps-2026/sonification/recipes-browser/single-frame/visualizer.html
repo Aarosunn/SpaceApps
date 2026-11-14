@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>One frame: where each note is read</title>
+<style>
+  body { font: 15px/1.45 system-ui, sans-serif; max-width: 900px; margin: 0 auto; padding: 12px; background: #111; color: #eee; }
+  h1 { font-size: 1.3em; margin: 0 0 6px; }
+  h2 { font-size: 1.05em; margin: 0 0 2px; }
+  #stage { position: relative; }
+  #frame, #over { display: block; width: 100%; }
+  #frame { image-rendering: pixelated; }
+  #over { position: absolute; inset: 0; height: 100%; pointer-events: none; }
+  #chart { display: block; width: 100%; height: 150px; background: #1b1b1b; margin-top: 8px; }
+  #now { font-size: 1.05em; margin: 8px 0; min-height: 3em; }
+  section { border-top: 1px solid #444; padding: 10px 0; }
+  audio { width: 100%; margin-top: 4px; }
+  p { margin: 4px 0; }
+</style>
+</head>
+<body>
+<h1>One frame: where each note is read</h1>
+<p>A single frame of NASA SVS 3912 (sea surface temperature; eastern North America and the Gulf Stream). Play any of the three sounds below. The yellow area on the picture is the part being read at that moment.</p>
+<div id="stage">
+  <img id="frame" src="frame.bmp" width="684" height="384" alt="Map view: dark grey land on the left; ocean on the right coloured from blue (cold, north) to orange (warm, south).">
+  <canvas id="over"></canvas>
+</div>
+<p id="now" role="status" aria-live="off">Loading.</p>
+<canvas id="chart" aria-label="Chart of the notes in the sound that is playing; the lit bar is sounding now."></canvas>
+
+<section>
+  <h2>1. Column scan (naive baseline)</h2>
+  <p>A line sweeps left to right. Every row under the line sounds at once: higher on the picture is a higher pitch, brighter is louder.</p>
+  <audio id="a0" controls src="1_column_scan.wav"></audio>
+</section>
+<section>
+  <h2>2. North to south, then a chord</h2>
+  <p>Eight horizontal strips, one note each from the strip's mean ocean temperature, then all eight together.</p>
+  <audio id="a1" controls src="2_north_to_south_chord.wav"></audio>
+</section>
+<section>
+  <h2>3. West to east melody</h2>
+  <p>Forty vertical strips, one note each. A grey strip is all land and plays silence.</p>
+  <audio id="a2" controls src="3_west_to_east_melody.wav"></audio>
+</section>
+
+<script>
+(async function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id), over = $('over'), chart = $('chart'), now = $('now');
+  const audios = [$('a0'), $('a1'), $('a2')];
+  let s;
+  try { s = await (await fetch('summary.json')).json(); }
+  catch (e) { now.textContent = 'Could not load summary.json: ' + e.message; return; }
+  // these timings are the ones single_frame_demo.py used to render the audio
+  const SCAN_S = 6.0, BAND_STEP = 0.45, BAND_HOLD = 3.0, MEL_STEP = 0.22, MEL_STRIPS = 40;
+  const bandsC = s.strips_north_to_south_C, bandNotes = s.band_notes;
+  const melC = s.strips_west_to_east_C, mel = s.melody, skipped = s.land_strips_skipped_at_west_edge;
+  now.textContent = 'Ready. Press play on one of the three sounds.';
+
+  // one audio at a time, so the picture always matches what is heard
+  audios.forEach((a) => a.addEventListener('play', () => audios.forEach((b) => { if (b !== a) b.pause(); })));
+
+  const fit = (c) => { const r = c.getBoundingClientRect(), k = devicePixelRatio || 1; if (c.width !== Math.round(r.width * k) || c.height !== Math.round(r.height * k)) { c.width = Math.round(r.width * k); c.height = Math.round(r.height * k); } return k; };
+  const pitchRank = (names) => { const order = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']; const v = (n) => order.indexOf(n.slice(0, -1)) + 12 * +n.slice(-1); return names.map((n) => n === null ? null : v(n)); };
+  const bandRank = pitchRank(bandNotes), melRank = pitchRank(mel);
+
+  function bars(g, W, H, k, ranks, labels, cur, all) {             // one bar per note, height = pitch
+    const real = ranks.filter((r) => r !== null), lo = Math.min(...real), hi = Math.max(...real), n = ranks.length, bw = W / n;
+    g.font = (10 * k) + 'px system-ui, sans-serif'; g.textAlign = 'center';
+    for (let i = 0; i < n; i++) {
+      const on = all || i === cur;
+      if (ranks[i] === null) { g.fillStyle = on ? '#888' : '#333'; g.fillRect(i * bw + 1, H - 6 * k, bw - 2, 6 * k); continue; }
+      const h = (0.15 + 0.7 * (ranks[i] - lo) / Math.max(1, hi - lo)) * H;
+      g.fillStyle = on ? '#ffd23f' : (i < cur ? '#3d6f8f' : '#5fb0e0');
+      g.fillRect(i * bw + 1, H - h, bw - 2, h);
+      if (bw > 26 * k) { g.fillStyle = '#eee'; g.fillText(labels[i], i * bw + bw / 2, H - h - 5 * k); }
+    }
+  }
+
+  function draw() {
+    const which = audios.findIndex((a) => !a.paused && !a.ended), a = audios[which];
+    let k = fit(over), g = over.getContext('2d'), W = over.width, H = over.height;
+    g.clearRect(0, 0, W, H);
+    const k2 = fit(chart), c = chart.getContext('2d'), CW = chart.width, CH = chart.height;
+    c.clearRect(0, 0, CW, CH);
+    g.lineWidth = 2 * k; g.strokeStyle = '#ffd23f'; g.fillStyle = 'rgba(255,210,63,0.22)';
+
+    if (which === 0) {                                             // 1) scan line
+      const u = Math.min(1, a.currentTime / SCAN_S), x = u * W;
+      g.fillRect(0, 0, x, H); g.clearRect(0, 0, Math.max(0, x - 3 * k), H);   // keep only a thin band lit
+      g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke();
+      g.fillStyle = '#ffd23f'; g.font = (12 * k) + 'px system-ui, sans-serif';
+      g.fillText('high pitch', Math.min(W - 70 * k, x + 6 * k), 14 * k); g.fillText('low pitch', Math.min(W - 70 * k, x + 6 * k), H - 8 * k);
+      c.fillStyle = '#5fb0e0'; c.fillRect(0, CH / 2 - 3 * k2, u * CW, 6 * k2);
+      c.fillStyle = '#aaa'; c.textAlign = 'left'; c.font =(12 * k2) + 'px system-ui, sans-serif'; c.fillText('Scan position. No single notes here: every row under the line sounds together.', 8 * k2, 20 * k2);
+      now.textContent = 'Column scan: reading the column ' + Math.round(u * 100) + '% of the way across. All rows in that column sound at once, brightness sets loudness. The colour bar is not used.';
+    } else if (which === 1) {                                      // 2) horizontal strips, then all together
+      const n = bandNotes.length, t = a.currentTime, i = Math.floor(t / BAND_STEP), all = i >= n, sh = H / n;
+      const lit = all ? [...Array(n).keys()] : [i];
+      if (t < n * BAND_STEP + BAND_HOLD) for (const j of lit) { g.fillRect(0, j * sh, W, sh); g.strokeRect(k, j * sh + k, W - 2 * k, sh - 2 * k); }
+      bars(c, CW, CH, k2, bandRank, bandNotes.map((nm, j) => nm + ' ' + bandsC[j] + '°'), all ? -1 : i, all && t < n * BAND_STEP + BAND_HOLD);
+      now.textContent = all
+        ? 'Chord: all eight strips together (' + bandNotes.join(', ') + ').'
+        : 'Strip ' + (i + 1) + ' of ' + n + ' from the top: mean ocean temperature ' + bandsC[i] + ' °C becomes ' + bandNotes[i] + '.';
+    } else if (which === 2) {                                      // 3) vertical strips
+      const i = Math.min(mel.length - 1, Math.floor(a.currentTime / MEL_STEP)), sw = W / MEL_STRIPS, x = (skipped + i) * sw;
+      if (mel[i] === null) { g.fillStyle = 'rgba(160,160,160,0.35)'; g.strokeStyle = '#aaa'; }
+      g.fillRect(x, 0, sw, H); g.strokeRect(x, k, sw, H - 2 * k);
+      bars(c, CW, CH, k2, melRank, mel, i, false);
+      now.textContent = mel[i] === null
+        ? 'Strip ' + (i + 1) + ' of ' + mel.length + ' from the left: all land, so silence.'
+        : 'Strip ' + (i + 1) + ' of ' + mel.length + ' from the left: mean ocean temperature ' + melC[i] + ' °C becomes ' + mel[i] + ', placed ' + Math.round(100 * (skipped + i) / (MEL_STRIPS - 1)) + '% of the way from the left ear to the right.';
+    } else if (audios.some((x) => x.currentTime > 0)) {
+      now.textContent = 'Paused. Press play on one of the three sounds.';
+    }
+    requestAnimationFrame(draw);
+  }
+  requestAnimationFrame(draw);
+})();
+</script>
+</body>
+</html>

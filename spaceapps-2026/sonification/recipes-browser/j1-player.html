@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>J1 Timeline player - Earth Information Jukebox recipe</title>
+<style>
+  body { font: 1rem/1.5 system-ui, sans-serif; max-width: 52rem; margin: 1rem auto; padding: 0 1rem; color: #111; background: #fff; }
+  video, canvas { display: block; width: 100%; max-width: 640px; height: auto; background: #000; }
+  [hidden] { display: none !important; }
+  button, select, input { font: inherit; }
+  button { padding: 0.5rem 0.9rem; }
+  :focus-visible { outline: 3px solid #1a5fb4; outline-offset: 3px; }
+  .row { display: flex; flex-wrap: wrap; gap: 0.5rem 1.2rem; align-items: center; margin: 0.7rem 0; }
+</style>
+</head>
+<body>
+<h1>J1 - Timeline player</h1>
+<p id="status" role="status" aria-live="polite">Loading...</p>
+
+<section aria-labelledby="h-listen">
+  <h2 id="h-listen">How to listen</h2>
+  <ul id="legend"></ul>
+</section>
+
+<section aria-labelledby="h-player">
+  <h2 id="h-player">Player</h2>
+  <video id="video" playsinline muted hidden></video>
+  <canvas id="canvas" width="640" height="320" role="img" hidden></canvas>
+  <div class="row">
+    <button id="play" type="button">Play</button>
+    <label for="seek">Position</label>
+    <input id="seek" type="range" min="0" max="1" step="0.1" value="0">
+  </div>
+  <div class="row">
+    <label>Speed
+      <select id="rate">
+        <option value="0.5">0.5x</option>
+        <option value="1" selected>1x</option>
+        <option value="2">2x</option>
+      </select>
+    </label>
+    <label><input id="loop" type="checkbox" checked> Loop</label>
+    <label>Volume <input id="vol" type="range" min="0" max="100" value="70"></label>
+    <label>Audio offset (ms) <input id="offset" type="number" min="-300" max="300" step="10" value="0"></label>
+  </div>
+  <fieldset>
+    <legend>Layers</legend>
+    <label><input type="checkbox" data-layer="pad" checked> Pad (slow trend)</label>
+    <label><input type="checkbox" data-layer="lead" checked> Lead notes (level)</label>
+    <label><input type="checkbox" data-layer="ref" checked> Reference blip</label>
+    <label><input type="checkbox" data-layer="drum" checked> Drums (events)</label>
+  </fieldset>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/tone@15.1.22/build/Tone.js"
+        integrity="sha384-NWoslxaf/3dYwQk+uGziDYJFdsjBpVlU1WpFRexuDFcIk/5PJpCbpVXia2Uikeix" crossorigin="anonymous"></script>
+<script src="sonify-core.js"></script>
+<script src="jukebox-engine.js"></script>
+<script>
+(async function () {
+  'use strict';
+  const core = SonifyCore, $ = (id) => document.getElementById(id);
+  const say = (msg) => { $('status').textContent = msg; };
+  const q = new URLSearchParams(location.search), map = core.DEFAULT_MAPPING;
+  if (typeof Tone === 'undefined') { say('Tone.js did not load. Check the network, or serve a local copy of Tone.js.'); return; }
+
+  // 1. Timeline: ?timeline=timelines/3912.json (same origin as this page), otherwise the built-in demo.
+  let tl;
+  try {
+    if (q.get('timeline')) {
+      const res = await fetch(q.get('timeline'));
+      if (!res.ok) throw new Error('HTTP ' + res.status + ' for ' + q.get('timeline'));
+      tl = await res.json();
+    } else tl = core.makeDemoTimeline();
+    const problems = core.validateTimeline(tl);
+    if (problems.length) throw new Error('it does not match the contract: ' + problems.join('; '));
+  } catch (err) { say('Could not load the timeline: ' + err.message); return; }
+  const stats = core.timelineStats(tl);
+
+  // 2. Picture: ?video=URL, or ?frames=frames/f_{0000}.jpg&count=120&fps=6[&first=1], otherwise the demo animation.
+  const spec = q.get('video') ? { video: q.get('video') }
+    : q.get('frames') ? { frames: { pattern: q.get('frames'), count: +q.get('count'), fps: +q.get('fps'), first: +(q.get('first') || 0) } }
+      : {};
+  if (spec.frames && !(spec.frames.count > 0 && spec.frames.fps > 0)) { say('An image sequence needs count and fps, for example ?frames=frames/f_{0000}.jpg&count=120&fps=6'); return; }
+  const video = $('video'), canvas = $('canvas');
+  const visual = JukeboxEngine.openVisual(core, video, canvas, spec, tl);
+  const label = 'Visualization: ' + tl.meta.source + '. The sound is described under How to listen.';
+  video.setAttribute('aria-label', label); canvas.setAttribute('aria-label', label);
+
+  // 3. The mapping in words, before any sound.
+  for (const line of core.describeMapping(tl, map, stats)) $('legend').appendChild(document.createElement('li')).textContent = line;
+
+  // 4. Controls, audio start on the first Play, and the picture loop all live in JukeboxEngine.createTransport.
+  const transport = JukeboxEngine.createTransport(Tone, core, map, say);
+  transport.load(visual, tl, map);
+  say('Ready: ' + tl.meta.source + ', ' + stats.duration.toFixed(1) + ' seconds, ' + tl.frames.length + ' analysed frames. Press Play.');
+
+  // 5. If the video cannot be loaded or decoded, keep the sound: show a coarse picture drawn from the timeline grid instead.
+  video.addEventListener('error', () => {
+    if (!video.getAttribute('src')) return;
+    transport.load(JukeboxEngine.openVisual(core, video, canvas, {}, tl), tl, map);
+    say('The video could not be loaded or decoded (try a WebM or H.264 MP4 file). Showing a coarse picture drawn from the timeline instead; the sound is unchanged.');
+  });
+})();
+</script>
+</body>
+</html>

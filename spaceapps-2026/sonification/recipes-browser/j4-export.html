@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>J4 Export - Earth Information Jukebox recipe</title>
+<style>
+  body { font: 1rem/1.5 system-ui, sans-serif; max-width: 52rem; margin: 1rem auto; padding: 0 1rem; color: #111; background: #fff; }
+  button, input { font: inherit; }
+  button { padding: 0.5rem 0.9rem; }
+  :focus-visible { outline: 3px solid #1a5fb4; outline-offset: 3px; }
+  .row { display: flex; flex-wrap: wrap; gap: 0.5rem 1.2rem; align-items: center; margin: 0.7rem 0; }
+</style>
+</head>
+<body>
+<h1>J4 - Export the sound</h1>
+<p id="status" role="status" aria-live="polite">Loading...</p>
+
+<div class="row">
+  <label>Timeline file (JSON, optional; the demo is used otherwise) <input id="file" type="file" accept="application/json,.json"></label>
+</div>
+<h2>A. Render the whole timeline to a WAV file (offline, faster than real time, silent)</h2>
+<div class="row">
+  <button id="render" type="button">Render to WAV and download</button>
+</div>
+<h2>B. Record what you hear (real time)</h2>
+<div class="row">
+  <button id="rec" type="button">Play and record</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/tone@15.1.22/build/Tone.js"
+        integrity="sha384-NWoslxaf/3dYwQk+uGziDYJFdsjBpVlU1WpFRexuDFcIk/5PJpCbpVXia2Uikeix" crossorigin="anonymous"></script>
+<script src="sonify-core.js"></script>
+<script src="jukebox-engine.js"></script>
+<script>
+(function () {
+  'use strict';
+  const core = SonifyCore, $ = (id) => document.getElementById(id);
+  const say = (msg) => { $('status').textContent = msg; };
+  const map = core.DEFAULT_MAPPING, toggles = { pad: true, lead: true, ref: true, drum: true };
+  let tl = core.makeDemoTimeline(), stats = core.timelineStats(tl);
+  let engine = null, player = null, clock = null, recorder = null, audioReady = null;
+  if (typeof Tone === 'undefined') { say('Tone.js did not load. Check the network, or serve a local copy of Tone.js.'); return; }
+  const safeName = () => String(tl.meta.source).replace(/[^\w.-]+/g, '_');
+  say('Ready: the demo timeline is loaded (' + stats.duration.toFixed(1) + ' seconds).');
+
+  // Load a timeline straight from disk: nothing is uploaded anywhere.
+  $('file').addEventListener('change', async () => {
+    const f = $('file').files[0];
+    if (!f) return;
+    try {
+      const obj = JSON.parse(await f.text()), problems = core.validateTimeline(obj);
+      if (problems.length) throw new Error(problems.join('; '));
+      tl = obj; stats = core.timelineStats(tl);
+      say('Loaded ' + f.name + ': ' + stats.duration.toFixed(1) + ' seconds, ' + tl.frames.length + ' frames.');
+    } catch (err) { say('That file is not a valid timeline: ' + err.message); }
+  });
+
+  // A. Offline render: Tone.Offline builds the same instruments in an OfflineAudioContext and computes the samples.
+  $('render').addEventListener('click', async () => {
+    say('Rendering...');
+    try {
+      const t0 = performance.now();
+      const buffer = await JukeboxEngine.renderOffline(Tone, core, tl, map, toggles);
+      const channels = [];
+      for (let c = 0; c < buffer.numberOfChannels; c++) channels.push(buffer.getChannelData(c));
+      const wav = core.encodeWav(channels, buffer.sampleRate);
+      JukeboxEngine.saveBlob(new Blob([wav], { type: 'audio/wav' }), 'jukebox-' + safeName() + '.wav');
+      say('Rendered ' + buffer.duration.toFixed(1) + ' seconds of sound in ' + ((performance.now() - t0) / 1000).toFixed(1) + ' seconds. Peak level ' +
+        core.peakDb(channels).toFixed(1) + ' dBFS, file size ' + (wav.byteLength / 1e6).toFixed(1) + ' MB.');
+    } catch (err) { say('The offline render failed: ' + err.message); }
+  });
+
+  // B. Real-time recording: Tone.Recorder wraps MediaRecorder on a MediaStreamAudioDestinationNode.
+  async function startAudio() {
+    if (navigator.audioSession) navigator.audioSession.type = 'playback';
+    await Tone.start();
+    engine = JukeboxEngine.createEngine(Tone, core, map);
+    engine.start(Tone.immediate());
+    player = JukeboxEngine.createPlayer(Tone, core, engine, toggles);
+    player.start();
+  }
+  $('rec').addEventListener('click', async () => {
+    try {
+      await (audioReady = audioReady || startAudio());
+      if (!Tone.Recorder.supported) { say('This browser has no MediaRecorder. Use the offline WAV render instead.'); return; }
+      if (!recorder) { recorder = new Tone.Recorder(); engine.limiter.connect(recorder); }   // tap the signal after the limiter
+      if (recorder.state !== 'started') {
+        clock = core.makeClipClock(stats.duration, () => performance.now() / 1000);
+        player.setSource(clock, tl, map);
+        await recorder.start();
+        await clock.play();
+        $('rec').textContent = 'Stop and download the recording';
+        say('Playing and recording. It stops by itself at the end, or press the button again.');
+        const mine = clock;
+        const watch = setInterval(() => {                    // stop by itself when the clip ends
+          if (clock !== mine || recorder.state !== 'started') clearInterval(watch);
+          else if (mine.ended) { clearInterval(watch); $('rec').click(); }
+        }, 200);
+      } else {
+        clock.pause();
+        await new Promise((done) => setTimeout(done, 600));  // let the last notes ring out
+        const blob = await recorder.stop();
+        const type = blob.type || recorder.mimeType;
+        JukeboxEngine.saveBlob(blob, 'jukebox-' + safeName() + '.' + core.extensionForMime(type));
+        $('rec').textContent = 'Play and record';
+        say('Saved the recording (' + type + ', ' + (blob.size / 1e6).toFixed(2) + ' MB).');
+      }
+    } catch (err) { say('Recording failed: ' + err.message); }
+  });
+})();
+</script>
+</body>
+</html>
