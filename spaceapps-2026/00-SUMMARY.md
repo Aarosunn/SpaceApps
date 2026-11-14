@@ -4,7 +4,7 @@ Written Sat Nov 14 2026, ~12:00pm ET. Details and sources are in 01/02/03. Tags:
 **Main source caveat:** every spaceappschallenge.org page failed to load (TLS certificate error; the list page is also blocked by robots.txt). We did not work around this. Facts come from NASA.gov, local event pages, GitHub and search snippets. **Have someone confirm these in a browser: the deadline, the required fields, and the full Jukebox statement.**
 
 ## Deadline
-- **Sun Nov 15, 2026, 11:59 PM, local event time** [I]: from search summaries and third-party posts, not the official page. Submission opened Sat 9 AM.
+- **Sun Nov 15, 2026, 11:59 PM local event time = 11:59 PM CT for Chicago** [V, official Judging & Awards Guide]. Submission opened Sat 9 AM.
 - Universal Event teams (2025 rule): the Team Owner's home timezone. Editing locks at the deadline, and no members can be added after it.
 - **Internal target: submitted by 10 PM Sunday.**
 - After that: Finalists announced Dec 17, 2026; winners in January 2027 [I]. Source: 03.

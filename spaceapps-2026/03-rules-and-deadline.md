@@ -1,3 +1,6 @@
+> **UPDATE 2026-11-14 ~12:30 ET — official site now readable (TLS fix: server sends cross-signed chain to removed Comodo root; added proper SSL.com intermediate from AIA). robots.txt allows all but /private/, /api/.**
+> **DEADLINE [VERIFIED]: "submit before Sunday, November 15 at 11:59 p.m. local time in accordance with your team's Local Event" — Chicago = 11:59 PM CT Sun Nov 15.** Source: https://www.spaceappschallenge.org/resources/judging-awards-guide/ (full text: sources/guide-judging.txt). China-funding review also [VERIFIED] there. Demo: 7 slides incl. title/intro OR 30-sec video [VERIFIED].
+
 # C - Space Apps 2026 Rules / Submission / Judging
 Compiled Sat 14 Nov 2026 ~11:35-12:05 ET. **Caveat:** every spaceappschallenge.org page failed in WebFetch (TLS "unable to get local issuer certificate"), and bash has no network. Official text is known only from search-engine snippets, so nothing official is [VERIFIED] by a direct read. The 2026 Project Submission Guide and the 2026 Judging & Awards Guide were both due for release 13 Nov 2026 (internshala listing + Paris kit). **ACTION: one teammate should open both in a browser and confirm the items marked (2025).**
 
