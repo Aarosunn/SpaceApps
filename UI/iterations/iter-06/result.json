@@ -1,0 +1,35 @@
+{
+  "id": "iter-06",
+  "n": 6,
+  "note": "FINAL: fixed iter-05 CSS regression (unclosed rule broke Show controls pill)",
+  "time": "2026-11-14T22:35:47.395Z",
+  "screens": {
+    "main": {
+      "diffPct": 0.66
+    },
+    "menu-open": {
+      "diffPct": 1.08
+    },
+    "mixtape-shared": {
+      "diffPct": 0.93
+    },
+    "controls-hidden": {
+      "diffPct": 0.46
+    },
+    "playlist-hidden": {
+      "diffPct": 0.25
+    },
+    "flight-1": {
+      "diffPct": 0.58
+    },
+    "flight-2": {
+      "diffPct": 0.52
+    },
+    "flight-3": {
+      "diffPct": 0.58
+    },
+    "sonification-over-time": {
+      "diffPct": 0.49
+    }
+  }
+}
