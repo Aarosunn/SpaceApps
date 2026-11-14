@@ -481,8 +481,8 @@ Times are estimates (judgment).
 ## Sources
 
 Local files
-- Official challenge text - C:\Users\alexl\code\hackathons\SpaceApps\spaceapps-2026\sources\jukebox.txt - accessibility as a core theme; screen-reader support, tactile feedback and descriptive text as suggested features; resource list
-- Local SVS API crawl - C:\Users\alexl\code\hackathons\spaceapps-eic-evidence\svs_api (94 JSON files) - alt-text statistics in 2.2
+- Official challenge text - spaceapps-2026\sources\jukebox.txt - accessibility as a core theme; screen-reader support, tactile feedback and descriptive text as suggested features; resource list
+- Local SVS API crawl - spaceapps-eic-evidence (local crawl, not in this repo)\svs_api (94 JSON files) - alt-text statistics in 2.2
 
 NASA Chandra programme and its evaluation
 - Arcand et al. 2024, A Universe of Sound: processing NASA data into sonifications to explore participant response - https://www.frontiersin.org/journals/communication/articles/10.3389/fcomm.2024.1288896/full - sample, method, items, p-values, word counts, limitations, the one quoted phrase

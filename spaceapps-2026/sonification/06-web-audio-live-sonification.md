@@ -522,7 +522,7 @@ Known limits of the skeleton, on purpose: one clip, no clip picker; the probe re
 
 ## Sources
 
-Measurements (own, 2026-11-14): curl header probes and browser tests against the URLs in section 1. Scripts, logs (`probe_svs.log`, `probe_other.log`, `probe_extra.log`) and the tested `skeleton.html` are in `C:\Users\alexl\AppData\Local\Temp\claude\150df90ecfbb827e\85163732-6cf8-4eea-a295-061a9bb04d9c\scratchpad\work\web-audio` (a temp folder; copy what you need). The fact-check repeated the curl probes and the browser taint tests the same day (19:33 to 20:15 GMT, page origin `http://127.0.0.1:8772`, same results) and added the `http.server` Range test, the limiter renders and the run of the edited skeleton; its scripts and logs are in the sibling folder `work\verify-06-content`.
+Measurements (own, 2026-11-14): curl header probes and browser tests against the URLs in section 1. Scripts, logs (`probe_svs.log`, `probe_other.log`, `probe_extra.log`) and the tested `skeleton.html` are in `(session scratch folder, not kept)\web-audio` (a temp folder; copy what you need). The fact-check repeated the curl probes and the browser taint tests the same day (19:33 to 20:15 GMT, page origin `http://127.0.0.1:8772`, same results) and added the `http.server` Range test, the limiter renders and the run of the edited skeleton; its scripts and logs are in the sibling folder `work\verify-06-content`.
 
 - Web Audio API (MDN) - https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API - node one-line descriptions, routing graph
 - AudioParam (MDN) - https://developer.mozilla.org/en-US/docs/Web/API/AudioParam - automation methods, `.value` ignored while events are scheduled

@@ -2,7 +2,7 @@
 
 > Status: researched 2026-11-14 with live sources by its author. The independent fact-check pass did NOT complete (see README.md). Treat licence, citation and version claims as unconfirmed until you open the cited source.
 
-Scope: the "numbers to sound" half. Input = per-frame features (see 02-frame-analysis-algorithms.md). Output = sound parameters. Musical polish is in 04-making-it-musical.md, libraries in 05-tools-and-libraries.md, full programs in 08-recipes-python.md and 09-recipes-browser.md. Tags: "(unverified)" = not confirmed on a live page today; "(rule of thumb)" = our engineering judgment, not a cited result; "measured" = run on this machine today (numpy script `C:\Users\alexl\AppData\Local\Temp\claude\150df90ecfbb827e\85163732-6cf8-4eea-a295-061a9bb04d9c\scratchpad\work\mapping-synthesis\checks.py`).
+Scope: the "numbers to sound" half. Input = per-frame features (see 02-frame-analysis-algorithms.md). Output = sound parameters. Musical polish is in 04-making-it-musical.md, libraries in 05-tools-and-libraries.md, full programs in 08-recipes-python.md and 09-recipes-browser.md. Tags: "(unverified)" = not confirmed on a live page today; "(rule of thumb)" = our engineering judgment, not a cited result; "measured" = run on this machine today (numpy script `(session scratch folder, not kept)\mapping-synthesis\checks.py`).
 
 ## TL;DR
 

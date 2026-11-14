@@ -311,10 +311,10 @@ USE OF AI. No AI-generated audio, images or video are used in the product.
 ## Sources
 
 Space Apps and SVS
-- Local copy of the challenge text - `C:\Users\alexl\code\hackathons\SpaceApps\spaceapps-2026\sources\jukebox.txt` - deliverable forms, "machine learning algorithms" allowed
-- Local copy of the judging guide - `C:\Users\alexl\code\hackathons\SpaceApps\spaceapps-2026\sources\guide-judging.txt` - references and copyrighted-material checkbox
-- Team rules notes - `C:\Users\alexl\code\hackathons\SpaceApps\spaceapps-2026\03-rules-and-deadline.md` - AI disclosure wording (2025), OSI licence requirement
-- Local EIC crawl - `C:\Users\alexl\code\hackathons\spaceapps-eic-evidence\pages.json`, `media.json`, `svs_api/` - one audio item (a .mov), no .wav/.mp3; ten pages with production-music credits, each re-checked on the live page API (https://svs.gsfc.nasa.gov/api/<id>)
+- Local copy of the challenge text - `spaceapps-2026\sources\jukebox.txt` - deliverable forms, "machine learning algorithms" allowed
+- Local copy of the judging guide - `spaceapps-2026\sources\guide-judging.txt` - references and copyrighted-material checkbox
+- Team rules notes - `spaceapps-2026\03-rules-and-deadline.md` - AI disclosure wording (2025), OSI licence requirement
+- Local EIC crawl - `spaceapps-eic-evidence (local crawl, not in this repo)\pages.json`, `media.json`, `svs_api/` - one audio item (a .mov), no .wav/.mp3; ten pages with production-music credits, each re-checked on the live page API (https://svs.gsfc.nasa.gov/api/<id>)
 - Data Sonification: Caldwell 73 - https://svs.gsfc.nasa.gov/13786/ and https://svs.gsfc.nasa.gov/api/13786 - mapping text, credit, date, files
 - SVS help - https://svs.gsfc.nasa.gov/help/ - public domain statement, licensed-music exception
 - NASA images and media guidelines - https://www.nasa.gov/nasa-brand-center/images-and-media/ - copyright status, acknowledgement, insignia

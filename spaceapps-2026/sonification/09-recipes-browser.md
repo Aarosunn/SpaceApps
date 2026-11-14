@@ -2650,5 +2650,5 @@ Who can do what in parallel: one person on timelines (08), one on the J5 page an
 - NASA SVS, 3912 colour bar - https://svs.gsfc.nasa.gov/vis/a000000/a003900/a003912/sst_ecco2_cbar.png - an example legend image; same fixed CORS header.
 - NASA SVS pages used for the J5 track list - https://svs.gsfc.nasa.gov/3912/ , https://svs.gsfc.nasa.gov/4950/ , https://svs.gsfc.nasa.gov/5196/ - titles and descriptions (read from the local crawl of the SVS API).
 - NASA SVS media listed in the J5 track list - https://svs.gsfc.nasa.gov/vis/a000000/a004900/a004950/GEDI_global_w_colorbar_1080p60.webm , https://svs.gsfc.nasa.gov/vis/a000000/a005100/a005196/dyamondPointCloud_12-4-2023b_dyamond_co2_anim_globe_tilt_1080p30.mp4 - status 200 and sizes 6.3 MB and 25.7 MB in the local crawl (`downloads.json`).
-- Local evidence crawl - C:\Users\alexl\code\hackathons\spaceapps-eic-evidence (`pages.json`, `downloads.json`, `framesets.json`) - file names, sizes and descriptions of EIC media.
-- Official challenge text - C:\Users\alexl\code\hackathons\SpaceApps\spaceapps-2026\sources\jukebox.txt - requirements quoted (frames to sound, accessibility, "color spectrums to musical chords", "tactile feedback").
+- Local evidence crawl - spaceapps-eic-evidence (local crawl, not in this repo) (`pages.json`, `downloads.json`, `framesets.json`) - file names, sizes and descriptions of EIC media.
+- Official challenge text - spaceapps-2026\sources\jukebox.txt - requirements quoted (frames to sound, accessibility, "color spectrums to musical chords", "tactile feedback").
