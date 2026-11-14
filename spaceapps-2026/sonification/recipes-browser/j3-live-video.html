@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>J3 Live video analysis - Earth Information Jukebox recipe</title>
+<style>
+  body { font: 1rem/1.5 system-ui, sans-serif; max-width: 52rem; margin: 1rem auto; padding: 0 1rem; color: #111; background: #fff; }
+  video { display: block; width: 100%; max-width: 640px; height: auto; background: #000; }
+  button, input { font: inherit; }
+  button { padding: 0.5rem 0.9rem; }
+  :focus-visible { outline: 3px solid #1a5fb4; outline-offset: 3px; }
+  .row { display: flex; flex-wrap: wrap; gap: 0.5rem 1.2rem; align-items: center; margin: 0.7rem 0; }
+</style>
+</head>
+<body>
+<h1>J3 - Live video analysis</h1>
+<p id="status" role="status" aria-live="polite">Loading...</p>
+<p>The sound is computed from the video frames while they play. Pad: louder when the picture is brighter overall, and
+brighter in tone when the picture is redder. Plucked notes: higher when the picture is brighter, faster when more of the
+picture is changing, placed left or right where the bright areas are. Drum: a spot that suddenly lights up.</p>
+
+<video id="video" playsinline muted loop aria-label="The video being analysed"></video>
+<div class="row">
+  <button id="play" type="button">Play</button>
+  <button id="rec" type="button">Record a timeline</button>
+  <label>Volume <input id="vol" type="range" min="0" max="100" value="70"></label>
+</div>
+<p id="meter" aria-hidden="true">&nbsp;</p>
+
+<script src="https://cdn.jsdelivr.net/npm/tone@15.1.22/build/Tone.js"
+        integrity="sha384-NWoslxaf/3dYwQk+uGziDYJFdsjBpVlU1WpFRexuDFcIk/5PJpCbpVXia2Uikeix" crossorigin="anonymous"></script>
+<script src="sonify-core.js"></script>
+<script src="jukebox-engine.js"></script>
+<script>
+(function () {
+  'use strict';
+  const core = SonifyCore, $ = (id) => document.getElementById(id);
+  const say = (msg) => { $('status').textContent = msg; };
+  const q = new URLSearchParams(location.search), video = $('video'), map = core.DEFAULT_MAPPING;
+  const W = 64, H = 36;            // size the frame is shrunk to before analysis (2304 pixels)
+  const ROWS = 6, COLS = 12;       // grid stored in a recorded timeline
+  const HZ = 15;                   // analyses per second at most
+  const NOTES = core.leadNotes(map);
+  let small = null, sctx = null, prevLuma = null;
+  let mode = 'pixels', tl = null, engine = null, audioReady = null, recording = null;
+  let lastMs = 0, lastT = -1, sm = {}, range = null, phase = 0, idx = null;
+  if (typeof Tone === 'undefined') { say('Tone.js did not load. Check the network, or serve a local copy of Tone.js.'); return; }
+
+  function reset() {               // a canvas that was tainted once stays tainted, so every source gets a new one
+    small = document.createElement('canvas'); small.width = W; small.height = H;
+    sctx = small.getContext('2d', { willReadFrequently: true });
+    prevLuma = null; sm = {}; range = { lo: Infinity, hi: -Infinity, motion: 1e-6 }; idx = null; lastT = -1;
+  }
+  reset();
+
+  // ----- source: ?video=path (a file served from this site), otherwise a generated demo stream -----
+  if (q.get('video')) {
+    video.src = q.get('video');    // no crossorigin attribute: a cross-origin file still plays, but its pixels are off limits
+    video.addEventListener('error', () => say('The browser could not load or decode this video. Try a WebM or H.264 MP4 file.'));
+  } else {
+    const demo = core.makeDemoTimeline(), dur = core.timelineStats(demo).duration;
+    const cv = document.createElement('canvas'); cv.width = 320; cv.height = 180;
+    const g = cv.getContext('2d');
+    (function paint() {
+      JukeboxEngine.drawDemoFrame(core, g, cv.width, cv.height, demo, (performance.now() / 1000) % dur);
+      requestAnimationFrame(paint);
+    })();
+    video.srcObject = cv.captureStream(30);   // a live video made from a canvas of this page: same origin, pixels readable
+  }
+  say('Ready. Press Play.');
+
+  // ----- features of the frame on screen: from its pixels, or from a precomputed timeline when pixels are blocked -----
+  function features(t) {
+    if (mode === 'timeline') {
+      const s = core.sampleTimeline(tl, t), c = core.gridCentroid(s.grid, tl.meta.grid[0], tl.meta.grid[1]);
+      const events = lastT >= 0 && t > lastT && t - lastT < 1 ? core.eventsBetween(tl.frames, lastT, t) : [];
+      return { mean: s.mean, motion: s.motion, grid: s.grid, cx: c.x, warmth: 0.5, events };
+    }
+    sctx.drawImage(video, 0, 0, W, H);                                                       // shrink the current frame
+    const f = core.frameFeatures(sctx.getImageData(0, 0, W, H).data, W, H, prevLuma, ROWS, COLS);   // SecurityError if tainted
+    f.events = core.detectEvents(f.luma, prevLuma, W, H, ROWS, COLS, 0.25, 3);
+    prevLuma = f.luma;
+    return f;
+  }
+
+  async function blocked() {
+    mode = 'blocked';
+    if (engine) engine.setPad({ gain: 0 }, Tone.immediate(), 0.05);
+    const url = q.get('timeline');
+    say('The browser will not give this page the pixels of the video: it comes from another origin without CORS permission (tainted canvas, SecurityError). ' +
+      (url ? 'Loading the precomputed timeline instead.' : 'Add &timeline=your-file.json to play a precomputed timeline, or serve a copy of the video from this site.'));
+    if (!url) return;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('HTTP ' + res.status + ' for ' + url);
+      const obj = await res.json(), problems = core.validateTimeline(obj);
+      if (problems.length) throw new Error(problems.join('; '));
+      tl = obj; reset(); mode = 'timeline';
+      say('The pixels of this video are blocked, so the sound now comes from the precomputed timeline ' + url + '.');
+    } catch (err) { say('The pixels are blocked and the timeline could not be loaded: ' + err.message); }
+  }
+
+  // ----- one analysis step: features -> smoothing -> sound -----
+  function analyse(t) {
+    const ms = performance.now();
+    if (mode === 'blocked' || !engine || ms - lastMs < 1000 / HZ) return;      // throttle
+    const dt = Math.min(0.5, (ms - lastMs) / 1000), now = Tone.immediate();
+    lastMs = ms;
+    let f;
+    try { f = features(t); }
+    catch (err) {
+      if (err.name !== 'SecurityError') throw err;
+      blocked(); return;
+    }
+    lastT = t;
+    const a = core.emaAlpha(dt, 0.3);                                          // 0.3 s time constant whatever the frame rate
+    sm.mean = core.ema(sm.mean, f.mean, a); sm.motion = core.ema(sm.motion, f.motion, a); sm.cx = core.ema(sm.cx, f.cx, a);
+    // ponytail: the value range is learned while playing and never shrinks; reload the page for a new clip
+    range.lo = Math.min(range.lo, sm.mean); range.hi = Math.max(range.hi, sm.mean); range.motion = Math.max(range.motion, sm.motion);
+    const u = core.norm(sm.mean, range.lo, range.hi);
+    engine.setPad({ gain: core.scaleLinear(u, map.padMinGain, map.padMaxGain), cutoff: core.scaleExp(f.warmth, map.padMinHz, map.padMaxHz) }, now, 0.15);
+    idx = core.stickyIndex(idx, u, NOTES.length);
+    const beat = core.pulseStep(phase, core.scaleExp(core.norm(sm.motion, 0, range.motion), 1, 8), dt);   // 1 to 8 notes per second
+    phase = beat.phase;
+    if (beat.fire) engine.play({ kind: 'lead', midi: NOTES[idx], vel: 0.7, pan: core.panFromX(sm.cx, 0.8, map.panGain), dur: 0.12 }, now);
+    for (const e of f.events) engine.play(core.drumEvent(e, map), now);
+    if (recording && mode === 'pixels' && (recording.length === 0 || t > recording[recording.length - 1].t + 1e-3)) {
+      recording.push({ t: core.round(t, 3), mean: core.round(f.mean), grid: f.grid.map((v) => core.round(v)), motion: core.round(f.motion), events: f.events });
+    }
+    $('meter').textContent = 'level ' + sm.mean.toFixed(3) + ' | change ' + sm.motion.toFixed(4) + ' | note ' + core.midiToName(NOTES[idx]) +
+      ' | source ' + mode + (recording ? ' | recording ' + recording.length + ' frames' : '');
+  }
+
+  // ----- the loop: once per presented video frame where the browser supports it, else once per display frame -----
+  const hasRVFC = 'requestVideoFrameCallback' in HTMLVideoElement.prototype;
+  function onFrame(_now, meta) {
+    if (!video.paused && !video.ended) analyse(meta ? meta.mediaTime : video.currentTime);
+    if (hasRVFC) video.requestVideoFrameCallback(onFrame); else requestAnimationFrame(() => onFrame());
+  }
+  onFrame();
+  const hush = () => { if (engine) engine.setPad({ gain: 0 }, Tone.immediate(), 0.05); };
+  for (const name of ['pause', 'ended', 'waiting']) video.addEventListener(name, hush);
+
+  // ----- controls -----
+  const volumeGain = () => Math.pow(+$('vol').value / 100, 2);
+  async function startAudio() {
+    if (navigator.audioSession) navigator.audioSession.type = 'playback';   // iOS 17+: stay audible with the ring switch on silent
+    await Tone.start();
+    engine = JukeboxEngine.createEngine(Tone, core, map);
+    engine.start(Tone.immediate());
+    engine.setMaster(volumeGain(), Tone.immediate());
+  }
+  $('play').addEventListener('click', () => {
+    const media = video.paused ? video.play() : video.pause();              // both calls run inside the user gesture
+    Promise.all([audioReady = audioReady || startAudio(), media]).catch((err) => say('Playback failed: ' + err.message));
+  });
+  video.addEventListener('play', () => { $('play').textContent = 'Pause'; if (mode === 'pixels') say('Playing. The sound is computed from the frames as they are shown.'); });
+  video.addEventListener('pause', () => { $('play').textContent = 'Play'; });
+  $('vol').addEventListener('input', () => { if (engine) engine.setMaster(volumeGain(), Tone.immediate()); });
+  $('rec').addEventListener('click', () => {
+    if (!recording) {
+      recording = []; $('rec').textContent = 'Stop and download the timeline';
+      say('Recording a timeline. Let the clip play through once, then press the button again.');
+      return;
+    }
+    const frames = recording;
+    recording = null; $('rec').textContent = 'Record a timeline';
+    if (frames.length < 2) { say('Nothing was recorded. Press Play first; the video must be readable (same origin).'); return; }
+    const out = core.buildTimeline(q.get('video') || 'demo-stream', frames, ROWS, COLS,
+      'brightness measured in the browser by recipe J3, 0 = black, 1 = white; fps is the analysis rate, not the frame rate of the file');
+    JukeboxEngine.saveBlob(new Blob([JSON.stringify(out)], { type: 'application/json' }), 'timeline.json');
+    say('Saved timeline.json with ' + frames.length + ' frames. Contract check: ' + (core.validateTimeline(out).join('; ') || 'passed') + '.');
+  });
+})();
+</script>
+</body>
+</html>

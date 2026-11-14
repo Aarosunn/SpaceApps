@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>One frame, three sounds</title>
+<style>
+  body { font: 16px/1.5 system-ui, sans-serif; max-width: 720px; margin: 0 auto; padding: 16px; }
+  img { max-width: 100%; height: auto; image-rendering: pixelated; }
+  section { border-top: 1px solid #8888; padding: 12px 0; }
+  audio { width: 100%; }
+  code { font-size: 0.9em; }
+</style>
+</head>
+<body>
+<h1>One frame, three sounds</h1>
+<p>One frame of NASA SVS 3912 (sea surface currents coloured by temperature), 34 seconds into the regional movie:
+eastern North America on the left, the Gulf Stream curling out into the Atlantic. Land is dark grey.</p>
+<img src="frame.bmp" width="684" height="384" alt="Map view: dark grey land of eastern North America on the left; ocean on the right coloured from blue (cold, north) through green to orange (warm, south), with swirling eddies along the Gulf Stream.">
+<p><img src="colourbar.png" alt="Colour bar from blue at 0 degrees Celsius to red at 32 degrees Celsius."></p>
+<p>Each pixel's hue was matched to this colour bar to get a temperature. 40% of the pixels have a readable colour (the ocean); the rest are land.</p>
+
+<section>
+<h2>1. Column scan (the naive baseline)</h2>
+<p>A line sweeps left to right in 6 seconds. Each row of the picture is a pitch (top is high) and its brightness is the loudness. No colour bar is used, only brightness.</p>
+<p><strong>Listen for:</strong> near-silence while the line crosses dark land, then a wash of sound as it reaches the ocean. It follows the picture but tells you little.</p>
+<audio controls src="1_column_scan.wav"></audio>
+</section>
+
+<section>
+<h2>2. North to south: eight notes, then a chord</h2>
+<p>The picture is cut into eight horizontal strips. Each strip's mean ocean temperature becomes one note, played top to bottom, then all together.</p>
+<p>Measured: 7.1, 9.3, 13.6, 19.7, 25.7, 27.6, 28.5, 28.6 °C. Notes: C3, D3, G3, D4, A4, C5, C5, C5.</p>
+<p><strong>Listen for:</strong> the notes climbing as the water warms towards the south, with the biggest jumps in the middle where the Gulf Stream front is, then levelling off.</p>
+<audio controls src="2_north_to_south_chord.wav"></audio>
+</section>
+
+<section>
+<h2>3. West to east: a melody across the ocean</h2>
+<p>The picture is cut into 40 vertical strips. Each strip's mean ocean temperature becomes one note, snapped to a pentatonic scale, and the sound moves from the left ear to the right. A gap is a strip that is all land.</p>
+<p>Measured: about 29 °C at the western edge (Gulf of Mexico), falling to about 21 °C at the eastern edge.</p>
+<p><strong>Listen for:</strong> high notes first, three beats of silence (land), then a descent of nearly two octaves that settles on one low note as the open Atlantic becomes uniform.</p>
+<audio controls src="3_west_to_east_melody.wav"></audio>
+</section>
+
+<p>Made by <code>recipes-python/single_frame_demo.py</code>. The numbers are in <code>summary.json</code>. Sounds are synthesized; no samples.</p>
+</body>
+</html>
