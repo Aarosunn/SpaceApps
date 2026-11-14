@@ -70,6 +70,12 @@
       "n": 4,
       "note": "Measured shared fixes: active card 2px@85% ink -1px margin (panel region 8.1->2.8%), caption padding; flight-3 local mixtape colors/strokes",
       "time": "2026-11-14T22:29:25.006Z"
+    },
+    {
+      "id": "iter-05",
+      "n": 5,
+      "note": "Measured fixes: year header pixel-exact (fixed iter-04 regression), active card 9.5px padding, volume row (region 1.36->0.16%)",
+      "time": "2026-11-14T22:34:29.775Z"
     }
   ]
 }
