@@ -1,0 +1,35 @@
+{
+  "id": "iter-01",
+  "n": 1,
+  "note": "Main screen built by Opus; other 8 screens fall back to Main",
+  "time": "2026-11-14T22:12:15.776Z",
+  "screens": {
+    "main": {
+      "diffPct": 1.05
+    },
+    "menu-open": {
+      "diffPct": 20.84
+    },
+    "mixtape-shared": {
+      "diffPct": 8.67
+    },
+    "controls-hidden": {
+      "diffPct": 12.59
+    },
+    "playlist-hidden": {
+      "diffPct": 7.36
+    },
+    "flight-1": {
+      "diffPct": 2.79
+    },
+    "flight-2": {
+      "diffPct": 3.65
+    },
+    "flight-3": {
+      "diffPct": 5.17
+    },
+    "sonification-over-time": {
+      "diffPct": 7.16
+    }
+  }
+}

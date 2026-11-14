@@ -1,0 +1,26 @@
+.hit {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.dot {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  border: 2.5px solid var(--ink);
+  box-shadow: var(--shadow-card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  font-family: var(--mono);
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--ink);
+  line-height: normal;
+}
+.playing { background: var(--lime); }
+.queued { background: var(--white); }

@@ -1,0 +1,50 @@
+.layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1440px;
+  height: 900px;
+}
+.abs { position: absolute; }
+.planeBox {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.cursorBox {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.pin {
+  position: relative;
+  width: 30px;
+  height: 36px;
+}
+.hoverCard {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--ink-80);
+  box-shadow: var(--shadow-chip);
+  overflow: hidden;
+  white-space: nowrap;
+}
+.hoverTitle {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--white);
+}
+.hoverHint {
+  font-family: var(--sans);
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--white-85);
+}

@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EarthFM UI iterations</title>
+<style>
+  :root { --bg: #0d140f; --panel: #17201a; --fg: #f4f1e8; --muted: #9aa39a; --lime: #d8f07a; --coral: #e0603f; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.4 system-ui, sans-serif; }
+  header { position: sticky; top: 0; z-index: 2; background: var(--panel); padding: 12px 16px; display: grid; gap: 8px; }
+  h1 { margin: 0; font-size: 16px; }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .row > span { color: var(--muted); min-width: 72px; }
+  button { font: inherit; color: var(--fg); background: #26302a; border: 1px solid #3a463e; border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+  button[aria-pressed="true"] { background: var(--lime); color: #17201a; border-color: var(--lime); font-weight: 600; }
+  button:focus-visible { outline: 3px solid var(--lime); outline-offset: 2px; }
+  .meta { color: var(--muted); }
+  .score { font-weight: 600; }
+  .pass { color: var(--lime); } .fail { color: var(--coral); }
+  main { padding: 16px; display: grid; gap: 12px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  figure { margin: 0; background: var(--panel); border-radius: 10px; overflow: hidden; }
+  figcaption { padding: 6px 10px; color: var(--muted); }
+  img { display: block; width: 100%; height: auto; }
+  .stack { position: relative; }
+  .stack img + img { position: absolute; inset: 0; }
+  .notes { background: var(--panel); border-radius: 10px; padding: 12px 14px; white-space: pre-wrap; }
+  a { color: var(--lime); }
+  input[type=range] { width: 240px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>EarthFM UI iterations <span class="meta" id="summary"></span></h1>
+  <div class="row" id="iters"><span>Iteration</span></div>
+  <div class="row" id="screens"><span>Screen</span></div>
+  <div class="row" id="modes"><span>View</span></div>
+</header>
+<main>
+  <div class="row"><span class="meta" id="info"></span></div>
+  <div id="stage"></div>
+  <div class="notes" id="notes" hidden></div>
+</main>
+<script>
+const MODES = [["side", "Figma | Build"], ["overlay", "Overlay (slider)"], ["diff", "Pixel diff"], ["build", "Build only"], ["live", "Live page"]];
+const state = { iter: null, screen: null, mode: "side", opacity: 0.5 };
+let idx, results = {};
+
+function load(key, fallback) { try { return localStorage.getItem(key) || fallback; } catch { return fallback; } }
+function save(key, v) { try { localStorage.setItem(key, v); } catch {} }
+
+function buttons(id, items, current, onPick) {
+  const row = document.getElementById(id);
+  row.querySelectorAll("button").forEach((b) => b.remove());
+  for (const [value, label] of items) {
+    const b = document.createElement("button");
+    b.textContent = label;
+    b.setAttribute("aria-pressed", String(value === current));
+    b.onclick = () => onPick(value);
+    row.appendChild(b);
+  }
+}
+
+async function result(id) {
+  if (!results[id]) results[id] = await fetch(`../iterations/${id}/result.json`).then((r) => r.json()).catch(() => ({ screens: {} }));
+  return results[id];
+}
+
+async function render() {
+  save("iter", state.iter); save("screen", state.screen); save("mode", state.mode);
+  buttons("iters", idx.iterations.map((it) => [it.id, String(it.n)]), state.iter, (v) => { state.iter = v; render(); });
+  buttons("screens", idx.screens.map((s) => [s.slug, s.name]), state.screen, (v) => { state.screen = v; render(); });
+  buttons("modes", MODES, state.mode, (v) => { state.mode = v; render(); });
+
+  const r = await result(state.iter);
+  const sc = r.screens[state.screen] || {};
+  const it = idx.iterations.find((i) => i.id === state.iter);
+  const rev = sc.review ? ` · reviewer ${sc.review.score}/100 (discounted ≈ ${Math.round(sc.review.score * 0.66)})` : "";
+  const verdict = sc.pass === undefined ? "" : sc.pass ? ` · <span class="pass">PASS</span>` : ` · <span class="fail">not yet</span>`;
+  document.getElementById("info").innerHTML = `${it.id} · ${new Date(it.time).toLocaleString()} · pixel diff <span class="score">${sc.diffPct ?? "?"}%</span>${rev}${verdict}${it.note ? " · " + it.note : ""}`;
+
+  const ref = `../reference/${state.screen}.png`, shot = `../iterations/${state.iter}/shots/${state.screen}.png`, diff = `../iterations/${state.iter}/diff/${state.screen}.png`;
+  const live = `../iterations/${state.iter}/site/screens/${state.screen}/`;
+  const stage = document.getElementById("stage");
+  if (state.mode === "side") stage.innerHTML = `<div class="grid"><figure><img src="${ref}" alt="Figma reference"><figcaption>Figma</figcaption></figure><figure><img src="${shot}" alt="Build screenshot"><figcaption>Build</figcaption></figure></div>`;
+  if (state.mode === "overlay") {
+    stage.innerHTML = `<label class="row"><span>Build opacity</span><input type="range" min="0" max="1" step="0.01" value="${state.opacity}" id="op"></label><figure class="stack"><img src="${ref}" alt="Figma reference"><img id="top" src="${shot}" alt="Build screenshot" style="opacity:${state.opacity}"></figure>`;
+    document.getElementById("op").oninput = (e) => { state.opacity = e.target.value; document.getElementById("top").style.opacity = state.opacity; };
+  }
+  if (state.mode === "diff") stage.innerHTML = `<figure><img src="${diff}" alt="Pixel diff"><figcaption>Red/yellow = pixels that differ from Figma</figcaption></figure>`;
+  if (state.mode === "build") stage.innerHTML = `<figure><img src="${shot}" alt="Build screenshot"></figure>`;
+  if (state.mode === "live") stage.innerHTML = `<p><a href="${live}" target="_blank">Open live page ↗</a></p><iframe src="${live}" title="Live page" style="width:1440px;height:900px;border:0;transform-origin:0 0;"></iframe>`;
+
+  const notes = document.getElementById("notes");
+  notes.hidden = !sc.review;
+  if (sc.review) notes.textContent = `Reviewer notes (${sc.review.model || "independent reviewer"}):\n${sc.review.notes}`;
+  const scores = idx.iterations.length;
+  document.getElementById("summary").textContent = `· ${scores} iteration${scores === 1 ? "" : "s"}`;
+}
+
+(async () => {
+  idx = await fetch("../iterations/index.json").then((r) => r.json());
+  const last = idx.iterations[idx.iterations.length - 1].id;
+  state.iter = idx.iterations.some((i) => i.id === load("iter", "")) ? load("iter", last) : last;
+  state.screen = idx.screens.some((s) => s.slug === load("screen", "")) ? load("screen", idx.screens[0].slug) : idx.screens[0].slug;
+  state.mode = MODES.some(([m]) => m === load("mode", "")) ? load("mode", "side") : "side";
+  document.addEventListener("keydown", (e) => {
+    const its = idx.iterations.map((i) => i.id), k = its.indexOf(state.iter);
+    if (e.key === "ArrowLeft" && k > 0) { state.iter = its[k - 1]; render(); }
+    if (e.key === "ArrowRight" && k < its.length - 1) { state.iter = its[k + 1]; render(); }
+  });
+  render();
+})();
+</script>
+</body>
+</html>

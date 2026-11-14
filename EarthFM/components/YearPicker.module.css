@@ -1,0 +1,66 @@
+.picker {
+  position: absolute;
+  left: 996px;
+  top: 771px;
+  width: 420px;
+  padding-top: 14px;
+  border-radius: 24px;
+  display: flex;
+  align-items: center;
+}
+.timeline {
+  flex: 1 0 0;
+  min-width: 1px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.labels {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  width: 100%;
+  color: var(--white);
+  text-shadow: var(--text-shadow-map);
+}
+.title {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 16px;
+  white-space: nowrap;
+}
+.yearNav {
+  font-family: var(--mono);
+  font-weight: 400;
+  font-size: 14px;
+  white-space: pre;
+}
+.bars {
+  display: flex;
+  gap: 4px;
+  align-items: flex-end;
+  width: 100%;
+}
+.bar {
+  flex: 1 0 0;
+  min-width: 1px;
+  border-radius: 3px;
+  background: var(--lime);
+  box-shadow: var(--shadow-bar);
+}
+.future { background: var(--lime-45); }
+.selected {
+  background: var(--white);
+  border: 1.5px solid var(--ink);
+}
+.years {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  font-family: var(--mono);
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--white);
+  text-shadow: var(--text-shadow-map);
+  white-space: nowrap;
+}

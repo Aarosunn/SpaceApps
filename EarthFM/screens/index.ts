@@ -1,0 +1,13 @@
+/* One entry per Figma frame on the "Final" page. Keep in sync with UI/reference/screens.json. */
+export const SCREENS = [
+  { slug: "main", node: "28:107", name: "Main · Playlist route" },
+  { slug: "menu-open", node: "38:76", name: "State · Menu open" },
+  { slug: "mixtape-shared", node: "38:396", name: "State · Mixtape shared" },
+  { slug: "controls-hidden", node: "41:89", name: "State · Controls hidden" },
+  { slug: "playlist-hidden", node: "45:460", name: "State · Playlist hidden" },
+  { slug: "flight-1", node: "38:624", name: "Flight 1 · Song ends" },
+  { slug: "flight-2", node: "38:837", name: "Flight 2 · In the air" },
+  { slug: "flight-3", node: "38:1050", name: "Flight 3 · Arrived" },
+  { slug: "sonification-over-time", node: "20:549", name: "Sonification over Time" },
+] as const;
+export type Slug = (typeof SCREENS)[number]["slug"];
