@@ -48,7 +48,7 @@ earthsound/
     layers.py                    # decode pixels -> values (lights, SST, lightning, image features)
     build.py                     # write site/data/{rounds,grids}.json + site/data/img/*.jpg
     test_pipeline.py             # pytest: geometry, calibration, build output
-    raw/                         # gitignored NASA source frames
+    raw/                         # NASA source frames, 57.5 MB, committed once
   site/
     index.html
     style.css
@@ -79,10 +79,11 @@ git init -b main
 - [ ] **Step 2: Write `.gitignore`**
 
 ```
-pipeline/raw/
 __pycache__/
 .pytest_cache/
 ```
+
+`pipeline/raw/` (57.5 MB; largest file 6.3 MB, under GitHub's 50 MB warning) is **committed** once in Task 1, so every teammate can rerun the pipeline. Don't re-commit changed raw frames repeatedly; git keeps every version.
 
 - [ ] **Step 3: Write a placeholder README** (filled in Task 11)
 
@@ -190,8 +191,8 @@ Expected: `3 passed`
 - [ ] **Step 7: Commit**
 
 ```bash
-git add pipeline/fetch.sh pipeline/geo.py pipeline/test_pipeline.py
-git commit -m "feat(pipeline): raw data copy and asset geometry"
+git add pipeline/fetch.sh pipeline/geo.py pipeline/test_pipeline.py pipeline/raw
+git commit -m "feat(pipeline): NASA SVS raw frames and asset geometry"
 ```
 
 ---
