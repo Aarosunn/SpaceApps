@@ -1,0 +1,27 @@
+.scrim { position: absolute; left: 10px; top: 670px; width: 1440px; height: 240px; background: linear-gradient(to bottom, rgba(23,32,26,0), rgba(23,32,26,0.6)); pointer-events: none; }
+.now { position: absolute; left: 500px; top: 656px; width: 440px; height: 34px; display: flex; gap: 8px; align-items: center; padding: 6px 14px; border-radius: 14px; background: var(--paper-80); overflow: hidden; }
+.nowText { font-family: var(--mono); font-weight: 500; font-size: 12px; color: var(--ink); white-space: nowrap; }
+.panel { position: absolute; left: 500px; top: 698px; width: 440px; height: 190px; border-radius: 20px; background: var(--paper-80); box-shadow: 0 6px 20px rgba(23,32,26,0.22); overflow: hidden; }
+.timeline { position: absolute; left: 16px; top: 14px; width: 408px; height: 84px; }
+.labels { position: absolute; left: 0; top: 0; width: 408px; height: 20px; display: flex; justify-content: space-between; text-shadow: var(--text-shadow-map); white-space: nowrap; }
+.layer { font-family: var(--sans); font-weight: 600; font-size: 13px; color: var(--ink); }
+.yearNow { font-family: var(--mono); font-size: 14px; color: var(--coral); }
+.bars { position: absolute; left: 0; top: 26px; width: 408px; height: 34px; }
+.bar { position: absolute; width: 12.48px; border-radius: 3px; background: var(--ink); box-shadow: var(--shadow-bar); }
+.now19 { background: var(--coral); }
+.future { background: var(--sand); }
+.years { position: absolute; left: 0; top: 66px; width: 408px; display: flex; justify-content: space-between; font-family: var(--mono); font-size: 12px; color: var(--muted); text-shadow: var(--text-shadow-map); white-space: nowrap; }
+.years .hot { color: var(--coral); }
+.playback { position: absolute; left: 16px; top: 108px; width: 408px; height: 40px; display: flex; gap: 12px; align-items: center; }
+.transport { display: flex; gap: 8px; }
+.round { width: 40px; height: 40px; border-radius: 999px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.outline { background: var(--paper); border: 1px solid var(--ink); }
+.solid { background: var(--ink); padding: 8px; }
+.time { flex: 1 0 0; text-align: right; align-self: flex-start; font-family: var(--mono); font-size: 14px; color: var(--muted); white-space: nowrap; }
+.volRow { position: absolute; left: 16px; top: 152px; width: 408px; height: 28px; display: flex; gap: 8px; align-items: center; padding-left: 4px; }
+.volLabel { font-family: var(--mono); font-size: 12px; color: var(--muted); white-space: nowrap; }
+.volBtn { width: 28px; height: 28px; border-radius: 14px; background: var(--ink); display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 18px; line-height: 22px; color: var(--lime); flex-shrink: 0; }
+.slider { flex: 1 0 0; min-width: 1px; height: 20px; position: relative; overflow: hidden; }
+.track { position: absolute; left: 0; top: 8px; height: 4px; width: 280px; border-radius: 2px; background: var(--sand); }
+.fill { position: absolute; left: 0; top: 8px; height: 4px; width: 210px; border-radius: 2px; background: var(--ink); }
+.thumb { position: absolute; left: 204px; top: 4px; width: 12px; height: 12px; }

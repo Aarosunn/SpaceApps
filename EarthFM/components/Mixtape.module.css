@@ -52,7 +52,7 @@
   overflow: hidden;
   text-align: left;
 }
-.stopActive { background: var(--lime-80); border: 1.5px solid var(--ink); }
+.stopActive { background: var(--lime-80); border: 2px solid var(--ink); } /* Figma says 1.5px; renders as 2px (card is 61px tall in the frame) */
 .stopIdle { background: var(--paper-80); border: 1px solid var(--line); }
 .num {
   width: 28px;

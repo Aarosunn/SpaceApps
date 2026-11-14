@@ -1,15 +1,23 @@
 import type { Slug } from "./index";
 import Main from "./Main";
+import MenuOpen from "./MenuOpen";
+import MixtapeShared from "./MixtapeShared";
+import ControlsHidden from "./ControlsHidden";
+import PlaylistHidden from "./PlaylistHidden";
+import Flight1 from "./Flight1";
+import Flight2 from "./Flight2";
+import Flight3 from "./Flight3";
+import SonificationOverTime from "./SonificationOverTime";
 
-/* Screens not built yet fall back to Main so every route renders. Builders replace entries as they go. */
+/* One screen component per Figma frame. Builders only edit their own screens/<Name>.tsx. */
 export const REGISTRY: Record<Slug, () => React.ReactElement> = {
-  main: Main,
-  "menu-open": Main,
-  "mixtape-shared": Main,
-  "controls-hidden": Main,
-  "playlist-hidden": Main,
-  "flight-1": Main,
-  "flight-2": Main,
-  "flight-3": Main,
-  "sonification-over-time": Main,
+  "main": Main,
+  "menu-open": MenuOpen,
+  "mixtape-shared": MixtapeShared,
+  "controls-hidden": ControlsHidden,
+  "playlist-hidden": PlaylistHidden,
+  "flight-1": Flight1,
+  "flight-2": Flight2,
+  "flight-3": Flight3,
+  "sonification-over-time": SonificationOverTime,
 };

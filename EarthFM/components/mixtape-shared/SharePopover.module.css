@@ -1,0 +1,43 @@
+.pop {
+  position: absolute;
+  left: 1116px;
+  top: 393px;
+  width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 20px;
+  background: var(--paper-80);
+  box-shadow: 0px 10px 30px 0px rgba(13, 20, 15, 0.25);
+  overflow: hidden;
+}
+.title { font-family: var(--sans); font-weight: 600; font-size: 17px; color: var(--ink); white-space: nowrap; }
+.field {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 11px 12px;
+  border-radius: 12px;
+  background: var(--white);
+  border: 1px solid var(--line);
+}
+.url { flex: 1 0 0; min-width: 1px; font-family: var(--mono); font-weight: 500; font-size: 12px; color: var(--ink); }
+.buttons { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+.btn {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 11px 14px;
+  border-radius: 12px;
+  font-family: var(--sans);
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.copied { background: var(--lime); border: 1.5px solid var(--ink); }
+.save { border: 1px solid var(--ink); }
+.note { font-family: var(--sans); font-weight: 500; font-size: 13px; color: var(--muted); }

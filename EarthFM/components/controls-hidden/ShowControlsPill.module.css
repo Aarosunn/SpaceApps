@@ -1,0 +1,7 @@
+.center {
+  position: absolute;
+  left: calc(50% + 0.5px);
+  top: 824px;
+  transform: translateX(-50%);
+}
+.center > div { position: static; }

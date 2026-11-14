@@ -52,6 +52,12 @@
       "n": 1,
       "note": "Main screen built by Opus; other 8 screens fall back to Main",
       "time": "2026-11-14T22:12:15.776Z"
+    },
+    {
+      "id": "iter-02",
+      "n": 2,
+      "note": "All 9 screens built (Sonnet builders); shared fixes from Fable review: pin rotation, year arrows, active card border",
+      "time": "2026-11-14T22:18:11.205Z"
     }
   ]
 }

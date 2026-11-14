@@ -10,7 +10,11 @@ export function YearPicker({ layer = "Wildfires", year = 2019 }: { layer?: strin
       <div className={s.timeline}>
         <div className={s.labels}>
           <p className={s.title}>Pick a year · {layer}</p>
-          <p className={s.yearNav}>{`${year}  ← →`}</p>
+          <p className={s.yearNav}>
+            {`${year}  `}
+            <span className={s.arrow}>←</span>
+            <span className={s.arrow} style={{ marginLeft: 11 }}>→</span>
+          </p>
         </div>
         <div className={s.bars} role="radiogroup" aria-label="Year">
           {HEIGHTS.map((h, i) => {

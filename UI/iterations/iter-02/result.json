@@ -1,0 +1,35 @@
+{
+  "id": "iter-02",
+  "n": 2,
+  "note": "All 9 screens built (Sonnet builders); shared fixes from Fable review: pin rotation, year arrows, active card border",
+  "time": "2026-11-14T22:18:11.205Z",
+  "screens": {
+    "main": {
+      "diffPct": 0.99
+    },
+    "menu-open": {
+      "diffPct": 1.74
+    },
+    "mixtape-shared": {
+      "diffPct": 1.26
+    },
+    "controls-hidden": {
+      "diffPct": 0.77
+    },
+    "playlist-hidden": {
+      "diffPct": 0.28
+    },
+    "flight-1": {
+      "diffPct": 0.9
+    },
+    "flight-2": {
+      "diffPct": 0.85
+    },
+    "flight-3": {
+      "diffPct": 0.77
+    },
+    "sonification-over-time": {
+      "diffPct": 0.84
+    }
+  }
+}

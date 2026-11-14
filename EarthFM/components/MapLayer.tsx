@@ -30,7 +30,8 @@ export function Boat({ left, top }: { left: number; top: number }) {
 export function PinCursor({ left, top }: { left: number; top: number }) {
   return (
     <div className={s.cursorBox} style={{ left, top, width: 43.981, height: 46.177 }} aria-hidden="true">
-      <BleedAsset className={s.pin} inset="-4.51% -8.33% -16.67% -8.33%" src={asset("/figma/pin-pointer.svg")} />
+      {/* 30x36 pin rotated -30deg inside a 43.98x46.18 box (= 30cos30+36sin30 by 30sin30+36cos30) */}
+      <BleedAsset className={s.pin} style={{ transform: "rotate(-30deg)" }} inset="-4.51% -8.33% -16.67% -8.33%" src={asset("/figma/pin-pointer.svg")} />
     </div>
   );
 }

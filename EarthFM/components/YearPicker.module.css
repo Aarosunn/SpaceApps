@@ -35,6 +35,8 @@
   font-size: 14px;
   white-space: pre;
 }
+/* DM Mono has no arrow glyphs; Figma fell back to a ~12px-wide system arrow (measured from the frame: 12px glyphs, 23px pitch). */
+.arrow { display: inline-block; width: 12px; text-align: center; font-family: var(--sans); font-size: 16px; }
 .bars {
   display: flex;
   gap: 4px;
