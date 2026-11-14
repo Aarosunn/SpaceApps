@@ -33,6 +33,18 @@ Written 2026-11-14 for Space Apps 2026. Answers: how do we actually get the soun
 | [08-recipes-python.md](08-recipes-python.md) | Index of the runnable Python code in `recipes-python/` |
 | [09-recipes-browser.md](09-recipes-browser.md) | Index of the browser code in `recipes-browser/` |
 
+## Demo songs and visualizers
+
+Made from the real SVS 3912 movie (sea surface temperature). Serve with `node serve.js . 8765` from `recipes-browser/`, then open the page.
+
+| Page | What it is |
+|---|---|
+| `recipes-browser/songs/index.html` | Two songs. Song 1 is from the whole clip: a melody that scans the picture's columns, a bass that follows the whole-view average, drums, and then-and-now bells, with an overlay showing where each note is read and a whole-clip chart. Song 2 is from a single frame. |
+| `recipes-browser/single-frame/visualizer.html` | One frame, three ways to hear it (scan, chord, melody), with a marker on the part being read. |
+| `recipes-browser/demo-clip/visualizer.html` | An earlier, simpler version of the clip song. |
+
+Both songs are rendered by `recipes-python/make_songs.py`. The camera moves during the clip, so the rise and fall you hear is a change in what is in view, not the ocean warming. Nobody has listened to these yet; the checks so far are that they render, play, and that the overlays match the note lists.
+
 The notes are long (6,000 to 11,000 words each). Each opens with a TL;DR and a "Decisions for the Jukebox build" section; read those two first.
 
 ## Known inconsistencies between notes
