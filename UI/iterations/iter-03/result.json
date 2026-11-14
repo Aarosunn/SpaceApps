@@ -1,0 +1,35 @@
+{
+  "id": "iter-03",
+  "n": 3,
+  "note": "Review fixes: card border 1.5px, year header, volume row, search baseline; sonification time readout; menu-open settings panel",
+  "time": "2026-11-14T22:22:35.244Z",
+  "screens": {
+    "main": {
+      "diffPct": 1.03
+    },
+    "menu-open": {
+      "diffPct": 1.46
+    },
+    "mixtape-shared": {
+      "diffPct": 1.31
+    },
+    "controls-hidden": {
+      "diffPct": 0.82
+    },
+    "playlist-hidden": {
+      "diffPct": 0.27
+    },
+    "flight-1": {
+      "diffPct": 0.95
+    },
+    "flight-2": {
+      "diffPct": 0.89
+    },
+    "flight-3": {
+      "diffPct": 0.81
+    },
+    "sonification-over-time": {
+      "diffPct": 0.85
+    }
+  }
+}

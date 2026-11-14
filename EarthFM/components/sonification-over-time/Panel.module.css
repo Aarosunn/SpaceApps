@@ -17,9 +17,9 @@
 .round { width: 40px; height: 40px; border-radius: 999px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .outline { background: var(--paper); border: 1px solid var(--ink); }
 .solid { background: var(--ink); padding: 8px; }
-.time { flex: 1 0 0; text-align: right; align-self: flex-start; font-family: var(--mono); font-size: 14px; color: var(--muted); white-space: nowrap; }
+.time { flex: 1 0 0; text-align: right; font-family: var(--mono); font-size: 14px; color: var(--muted); white-space: nowrap; }
 .volRow { position: absolute; left: 16px; top: 152px; width: 408px; height: 28px; display: flex; gap: 8px; align-items: center; padding-left: 4px; }
-.volLabel { font-family: var(--mono); font-size: 12px; color: var(--muted); white-space: nowrap; }
+.volLabel { margin-right: 1px; font-family: var(--mono); font-size: 12px; color: var(--muted); white-space: nowrap; }
 .volBtn { width: 28px; height: 28px; border-radius: 14px; background: var(--ink); display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 18px; line-height: 22px; color: var(--lime); flex-shrink: 0; }
 .slider { flex: 1 0 0; min-width: 1px; height: 20px; position: relative; overflow: hidden; }
 .track { position: absolute; left: 0; top: 8px; height: 4px; width: 280px; border-radius: 2px; background: var(--sand); }

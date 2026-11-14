@@ -76,11 +76,11 @@ export function MenuPanel() {
           <Seg a="Over Time" b="Over Area" label="Sonification mode" />
         </div>
         <p className={s.label}>Accessibility</p>
-        <Toggle label="Word descriptions (voice)" on />
+        <div className={s.tight}><Toggle label="Word descriptions (voice)" on /></div>
         <Toggle label="Captions" on />
         <Toggle label="Mono audio" on={false} />
       </div>
-      <div className={s.group}>
+      <div className={`${s.group} ${s.mixGroup}`}>
         <p className={s.label}>Mixtapes</p>
         <button className={s.mixtapes}>
           <span className={s.itemText}>My mixtapes (2)</span>

@@ -1,5 +1,5 @@
 .panel{position:absolute;left:24px;top:80px;width:352px;box-sizing:border-box;display:flex;flex-direction:column;gap:12px;padding:16px 20px;border-radius:24px;background:var(--paper-80);box-shadow:0 10px 30px rgba(13,20,15,.25);overflow:hidden}
-.header{display:flex;align-items:center;justify-content:space-between}
+.header{margin-bottom:1px;display:flex;align-items:center;justify-content:space-between}
 .title{margin:0;font:600 22px/normal var(--sans);color:var(--ink)}
 .close{display:flex;padding:0;background:none;border:0;cursor:pointer}
 .group{display:flex;flex-direction:column;gap:6px}
@@ -8,7 +8,7 @@
 .list{display:flex;flex-direction:column;align-items:stretch;border-radius:14px;background:var(--white-80);border:1px solid var(--line);overflow:hidden}
 .item{position:relative;display:flex;gap:10px;align-items:center;height:32px;box-sizing:border-box;padding:0 12px;cursor:pointer}
 .cb{position:absolute;opacity:0;width:18px;height:18px;margin:0;left:12px}
-.box{width:18px;height:18px;box-sizing:border-box;border:1.5px solid var(--ink);border-radius:4px;flex-shrink:0}
+.box{width:18px;height:18px;box-sizing:border-box;border:2px solid var(--ink);border-radius:4px;flex-shrink:0}
 .item img{flex-shrink:0}
 .itemText{font:500 15px/normal var(--sans);color:var(--ink);white-space:nowrap}
 .itemBold{font:600 15px/normal var(--sans);color:var(--ink);white-space:nowrap}
@@ -26,7 +26,10 @@
 .switch{display:block;width:44px;height:26px;padding:0;background:none;border:0;cursor:pointer}
 .switch img{display:block;width:44px;height:26px}
 .mixtapes{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:14px;background:var(--white-80);border:1px solid var(--line);cursor:pointer}
-.footer{display:flex;gap:16px;align-items:center}
+.footer{display:flex;gap:17px;align-items:center;margin-top:1px}
+.foot+.foot{gap:7px}
+.tight{margin-bottom:-1px}
+.mixGroup{margin-top:1px}
 .foot{display:flex;gap:6px;align-items:center;padding:0;background:none;border:0;cursor:pointer}
 .footText{font:500 14px/normal var(--sans);color:var(--ink);white-space:nowrap}
 .key{padding:2px 6px;border:1px solid var(--ink);border-radius:6px;font:500 12px/normal var(--mono);color:var(--ink)}

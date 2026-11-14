@@ -35,4 +35,5 @@
   font-weight: 400;
   font-size: 14.4px;
   color: var(--muted);
+  padding-top: 1px; /* baseline sits 1px high in Chrome vs Figma, measured */
 }

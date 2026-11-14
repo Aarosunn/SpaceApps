@@ -88,7 +88,7 @@
 .waveBar { flex: 1 0 0; min-width: 1px; border-radius: 2px; background: var(--ink); }
 .waveNow { background: var(--coral); }
 .waveAhead { background: var(--sand); }
-.volumeRow { display: flex; align-items: center; height: 28px; width: 100%; padding-left: 4px; overflow: hidden; }
+.volumeRow { display: flex; align-items: center; height: 28px; width: 100%; padding-left: 5px; overflow: hidden; } /* Figma 4px; Chrome rounds the row 1px left, measured */
 .volume { flex: 1 0 0; min-width: 1px; height: 28px; display: flex; gap: 8px; align-items: center; overflow: hidden; }
 .volumeLabel { font-family: var(--mono); font-weight: 400; font-size: 12px; color: var(--muted); white-space: nowrap; }
 .volBtn {
