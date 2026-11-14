@@ -1,0 +1,35 @@
+{
+  "id": "iter-04",
+  "n": 4,
+  "note": "Measured shared fixes: active card 2px@85% ink -1px margin (panel region 8.1->2.8%), caption padding; flight-3 local mixtape colors/strokes",
+  "time": "2026-11-14T22:29:25.006Z",
+  "screens": {
+    "main": {
+      "diffPct": 0.71
+    },
+    "menu-open": {
+      "diffPct": 1.13
+    },
+    "mixtape-shared": {
+      "diffPct": 0.98
+    },
+    "controls-hidden": {
+      "diffPct": 0.49
+    },
+    "playlist-hidden": {
+      "diffPct": 0.27
+    },
+    "flight-1": {
+      "diffPct": 0.62
+    },
+    "flight-2": {
+      "diffPct": 0.57
+    },
+    "flight-3": {
+      "diffPct": 0.6
+    },
+    "sonification-over-time": {
+      "diffPct": 0.52
+    }
+  }
+}

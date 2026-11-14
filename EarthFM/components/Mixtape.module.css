@@ -52,7 +52,7 @@
   overflow: hidden;
   text-align: left;
 }
-.stopActive { background: var(--lime-80); border: 1.5px solid var(--ink); }
+.stopActive { background: var(--lime-80); border: 2px solid rgba(23, 32, 26, 0.85); margin-bottom: -1px; } /* measured best vs frame (panel region 8.1% -> 2.8%) */
 .stopIdle { background: var(--paper-80); border: 1px solid var(--line); }
 .num {
   width: 28px;

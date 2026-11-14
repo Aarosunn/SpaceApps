@@ -13,7 +13,7 @@ export function YearPicker({ layer = "Wildfires", year = 2019 }: { layer?: strin
           <p className={s.yearNav}>
             {year}
             <span className={s.arrow} style={{ marginLeft: 14.8 }}>←</span>
-            <span className={s.arrow} style={{ marginLeft: 11, marginRight: 3 }}>→</span>
+            <span className={s.arrow} style={{ marginLeft: 10, marginRight: 0 }}>→</span>
           </p>
         </div>
         <div className={s.bars} role="radiogroup" aria-label="Year">

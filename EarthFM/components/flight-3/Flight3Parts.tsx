@@ -1,6 +1,6 @@
 import { asset } from "@/components/asset";
 import { BleedAsset, Icon } from "@/components/Icon";
-import s from "@/components/Mixtape.module.css";
+import s from "./Mixtape.module.css";
 import m from "@/components/MapLayer.module.css";
 import p from "@/components/Player.module.css";
 import c from "@/components/LiveCaption.module.css";
@@ -17,7 +17,7 @@ export function ArrivedPlane() {
 }
 
 const STOPS = [
-  { n: 1, name: "Amazon", sub: "Fires · played", cls: s.stopIdle, num: s.numActive, chevron: true, noBorder: true },
+  { n: 1, name: "Amazon", sub: "Fires · played", cls: `${s.stopIdle} ${s.stopPlayed}`, num: s.numActive, chevron: true },
   { n: 2, name: "Central Africa", sub: "Fires · playing now", cls: s.stopActive, num: s.numIdle },
   { n: 3, name: "Indian Ocean", sub: "Sea heat · then, sailing there", cls: s.stopIdle, num: s.numIdle },
 ];
@@ -39,7 +39,7 @@ export function ArrivedMixtape() {
         </div>
       </div>
       {STOPS.map((st) => (
-        <button key={st.n} className={`${s.stop} ${st.cls}`} style={st.noBorder ? { border: "none" } : undefined}>
+        <button key={st.n} className={`${s.stop} ${st.cls}`}>
           <Icon name="icon-drag" size={16} />
           <span className={`${s.num} ${st.num}`}>{st.n}</span>
           <span className={s.stopText}>

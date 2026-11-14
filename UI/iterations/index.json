@@ -64,6 +64,12 @@
       "n": 3,
       "note": "Review fixes: card border 1.5px, year header, volume row, search baseline; sonification time readout; menu-open settings panel",
       "time": "2026-11-14T22:22:35.244Z"
+    },
+    {
+      "id": "iter-04",
+      "n": 4,
+      "note": "Measured shared fixes: active card 2px@85% ink -1px margin (panel region 8.1->2.8%), caption padding; flight-3 local mixtape colors/strokes",
+      "time": "2026-11-14T22:29:25.006Z"
     }
   ]
 }

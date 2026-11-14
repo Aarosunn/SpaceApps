@@ -5,31 +5,544 @@
   "time": "2026-11-14T22:22:35.244Z",
   "screens": {
     "main": {
-      "diffPct": 1.03
+      "diffPct": 1.03,
+      "reviews": {
+        "fable": {
+          "slug": "main",
+          "score": 88,
+          "issues": [
+            {
+              "severity": "medium",
+              "region": "hover card (Pacific · Sea heat · 2019)",
+              "problem": "Title renders visibly heavier/bolder than reference (reference looks ~500-600 weight, build ~700) and ends 1px earlier (x=289 vs 290).",
+              "fix": "Lower title font-weight one step (e.g. 600 -> 500) and confirm font-size/letter-spacing match Figma."
+            },
+            {
+              "severity": "low",
+              "region": "hover card",
+              "problem": "Card is ~2px shorter and 1px narrower than reference (ref ~246x68 ending x=354,y=527; build ends x=353,y=525); subtitle baseline sits 1px higher (y=505 vs 506).",
+              "fix": "Add ~1px vertical padding top and bottom (or raise line-height) so height is 68px; widen by 1px."
+            },
+            {
+              "severity": "medium",
+              "region": "right panel, active card (Amazon)",
+              "problem": "Reference has a clear ~2px dark (#161d18-ish) border plus a hard dark bottom edge/shadow; build border is thinner and fainter, and the card is ~1-2px shorter (ref y 94-155, build 94-154).",
+              "fix": "Use border: 2px solid the dark ink color on the active card, add the bottom offset shadow (e.g. box-shadow: 0 2px 0 ink), keep outer height 62px."
+            },
+            {
+              "severity": "low",
+              "region": "right panel, cards 2-3 and Add place / Share row",
+              "problem": "Everything below card 1 sits 1px higher than reference (card text y 184/254 vs 185/255; button row y 325 vs 326), a knock-on from the short active card.",
+              "fix": "Fixing the active card height (or adding 1px to the stack gap) realigns the rest."
+            },
+            {
+              "severity": "low",
+              "region": "right panel, active card drag handle",
+              "problem": "Handle dots on the active card are dark grey and heavier in build; reference shows smaller, lighter olive-green dots (lower contrast against the lime fill) than on the inactive cards.",
+              "fix": "On the active card set the handle color to a muted olive (approx rgba(22,29,24,0.45)) and match the 2x3 dot size from Figma."
+            },
+            {
+              "severity": "low",
+              "region": "year picker header",
+              "problem": "Arrows are smaller and shifted ~2px left (ref x=1386/1409, build 1384/1408) and '2019' label is 1px right (1330 vs 1329).",
+              "fix": "Increase arrow glyph size ~1-2px to match and nudge the arrow group 2px right; check the gap between the year label and arrows."
+            },
+            {
+              "severity": "low",
+              "region": "year picker bars",
+              "problem": "Bars drift ~1px horizontally through the middle of the row (2003-2018) and the faded future bars (2020-2025) differ slightly in opacity/edge position.",
+              "fix": "Use exact Figma bar width and gap (avoid fractional flex distribution; set fixed px width + gap) and match the future-bar opacity."
+            },
+            {
+              "severity": "low",
+              "region": "player waveform / volume",
+              "problem": "Waveform bars are 1px off in width/position on about half the bars; VOLUME label is 1px right (x=507 vs 506).",
+              "fix": "Set fixed integer bar widths/gaps from Figma instead of fractional sizing; reduce label left offset by 1px."
+            },
+            {
+              "severity": "low",
+              "region": "caption pill and map pin",
+              "problem": "Caption pill is 1px narrower (right edge 379 vs 380); Pacific pin sits 1px up-left (93,447 vs 94,448).",
+              "fix": "Add 1px horizontal padding to the caption pill; shift the pin by +1px,+1px."
+            }
+          ],
+          "notes": "Very close build: every element is present with correct text, icons, colors and layout, and the 1.03% pixel diff is mostly anti-aliasing. Remaining differences are sub-2px offsets plus three visible styling misses: the hover-card title weight, the active mixtape card's border/bottom edge, and the active card's drag-handle tint. Fixing the active card height would also clear the 1px shift running down the rest of the right panel."
+        }
+      },
+      "review": {
+        "score": 88,
+        "model": "fable",
+        "notes": "Very close build: every element is present with correct text, icons, colors and layout, and the 1.03% pixel diff is mostly anti-aliasing. Remaining differences are sub-2px offsets plus three visible styling misses: the hover-card title weight, the active mixtape card's border/bottom edge, and the active card's drag-handle tint. Fixing the active card height would also clear the 1px shift running down the rest of the right panel.\n- [medium] hover card (Pacific · Sea heat · 2019): Title renders visibly heavier/bolder than reference (reference looks ~500-600 weight, build ~700) and ends 1px earlier (x=289 vs 290). -> Lower title font-weight one step (e.g. 600 -> 500) and confirm font-size/letter-spacing match Figma.\n- [low] hover card: Card is ~2px shorter and 1px narrower than reference (ref ~246x68 ending x=354,y=527; build ends x=353,y=525); subtitle baseline sits 1px higher (y=505 vs 506). -> Add ~1px vertical padding top and bottom (or raise line-height) so height is 68px; widen by 1px.\n- [medium] right panel, active card (Amazon): Reference has a clear ~2px dark (#161d18-ish) border plus a hard dark bottom edge/shadow; build border is thinner and fainter, and the card is ~1-2px shorter (ref y 94-155, build 94-154). -> Use border: 2px solid the dark ink color on the active card, add the bottom offset shadow (e.g. box-shadow: 0 2px 0 ink), keep outer height 62px.\n- [low] right panel, cards 2-3 and Add place / Share row: Everything below card 1 sits 1px higher than reference (card text y 184/254 vs 185/255; button row y 325 vs 326), a knock-on from the short active card. -> Fixing the active card height (or adding 1px to the stack gap) realigns the rest.\n- [low] right panel, active card drag handle: Handle dots on the active card are dark grey and heavier in build; reference shows smaller, lighter olive-green dots (lower contrast against the lime fill) than on the inactive cards. -> On the active card set the handle color to a muted olive (approx rgba(22,29,24,0.45)) and match the 2x3 dot size from Figma.\n- [low] year picker header: Arrows are smaller and shifted ~2px left (ref x=1386/1409, build 1384/1408) and '2019' label is 1px right (1330 vs 1329). -> Increase arrow glyph size ~1-2px to match and nudge the arrow group 2px right; check the gap between the year label and arrows.\n- [low] year picker bars: Bars drift ~1px horizontally through the middle of the row (2003-2018) and the faded future bars (2020-2025) differ slightly in opacity/edge position. -> Use exact Figma bar width and gap (avoid fractional flex distribution; set fixed px width + gap) and match the future-bar opacity.\n- [low] player waveform / volume: Waveform bars are 1px off in width/position on about half the bars; VOLUME label is 1px right (x=507 vs 506). -> Set fixed integer bar widths/gaps from Figma instead of fractional sizing; reduce label left offset by 1px.\n- [low] caption pill and map pin: Caption pill is 1px narrower (right edge 379 vs 380); Pacific pin sits 1px up-left (93,447 vs 94,448). -> Add 1px horizontal padding to the caption pill; shift the pin by +1px,+1px."
+      },
+      "pass": false
     },
     "menu-open": {
-      "diffPct": 1.46
+      "diffPct": 1.46,
+      "reviews": {
+        "fable": {
+          "slug": "menu-open",
+          "score": 90,
+          "issues": [
+            {
+              "severity": "medium",
+              "region": "top-left menu button",
+              "problem": "Dark outline on the green hamburger button is ~2px and near-black in the reference; build shows a thinner (~1px), lighter outline, so the button reads softer.",
+              "fix": "Set the menu button to border: 2px solid #1a1f1a (the ink colour) with box-sizing: border-box so the 48px size is unchanged."
+            },
+            {
+              "severity": "medium",
+              "region": "year picker, future bars (2020-2025)",
+              "problem": "Faded bars after the selected year are a darker, more olive green in the reference; build renders them paler and more washed out (lighter lime at low opacity).",
+              "fix": "Raise opacity of the future bars (approx 0.45 -> 0.6) or use a darker fill such as rgba(150,170,80,0.6) instead of the lime at low alpha; check for a mix-blend-mode in the Figma layer."
+            },
+            {
+              "severity": "low",
+              "region": "year picker, selected 2019 bar",
+              "problem": "Selected white bar has a ~2px dark outline in the reference; build outline is thinner (~1px). Prev/next arrows are also ~1px left and slightly smaller than reference (1386/1409 vs 1385/1408).",
+              "fix": "border: 2px solid #1a1f1a on the selected bar; bump arrow font-size by ~1px and shift right 1px."
+            },
+            {
+              "severity": "low",
+              "region": "settings > genre chips",
+              "problem": "Selected 'Lo-fi' chip is ~2px taller and 1px wider than reference (about 38px vs 36px high), so it no longer matches the height of the neighbouring chips; EDM and Classical are pushed 1px right; Hip-hop is ~1px narrower so Jazz sits 1px left.",
+              "fix": "Give selected and unselected chips the same box: identical height (36px) and a border on both states (transparent border on the selected one) rather than adding border/padding only when selected."
+            },
+            {
+              "severity": "low",
+              "region": "settings > accessibility",
+              "problem": "'Word descriptions (voice)' row sits ~2px lower than reference (label baseline y~631 vs 629) while Captions and Mono audio rows match, so row spacing is 29/30 instead of 30/30.",
+              "fix": "Remove the extra 1-2px top margin/padding on the first accessibility row; use a uniform 30px row height from the ACCESSIBILITY heading."
+            },
+            {
+              "severity": "low",
+              "region": "settings > data checkboxes",
+              "problem": "All five labels are 1px lower than reference (176/208/240/272/304 vs 175/207/239/271/303) while the checkbox squares are in place, so label and box are slightly misaligned vertically.",
+              "fix": "Tighten label line-height or add transform: translateY(-1px) / align-items: center on the checkbox rows."
+            },
+            {
+              "severity": "low",
+              "region": "right panel mixtape list",
+              "problem": "The three stop cards plus the Add place / Share row are all 1px higher than reference (card 1 top 93 vs 94; Add place text y 325 vs 326). Title and header line above are in place.",
+              "fix": "Add 1px to the gap between the mixtape title and the first card (margin-top +1px on the list)."
+            },
+            {
+              "severity": "low",
+              "region": "settings footer and caption pill",
+              "problem": "Sub-2px drifts: Help key badge 1px left, 'Keyboard map' 1px right with its K badge 2px right (275 vs 273); caption pill 1px narrower (right edge 379 vs 380); VOLUME label 1px right.",
+              "fix": "Reduce gap between Help label and its kbd by 1px offset, and trim keyboard-map label letter-spacing/gap by 1-2px; add 1px horizontal padding to the caption pill."
+            }
+          ],
+          "notes": "Very close reproduction: every element is present, text content matches exactly, and the map, route, pins, player and settings panel line up to within 1-2px. Remaining differences are stroke weights (menu button, selected year bar), the tint of the faded future year bars, a slightly oversized selected genre chip, and a handful of 1-2px vertical drifts in the settings rows and mixtape list. No missing, extra, or distorted elements were found."
+        }
+      },
+      "review": {
+        "score": 90,
+        "model": "fable",
+        "notes": "Very close reproduction: every element is present, text content matches exactly, and the map, route, pins, player and settings panel line up to within 1-2px. Remaining differences are stroke weights (menu button, selected year bar), the tint of the faded future year bars, a slightly oversized selected genre chip, and a handful of 1-2px vertical drifts in the settings rows and mixtape list. No missing, extra, or distorted elements were found.\n- [medium] top-left menu button: Dark outline on the green hamburger button is ~2px and near-black in the reference; build shows a thinner (~1px), lighter outline, so the button reads softer. -> Set the menu button to border: 2px solid #1a1f1a (the ink colour) with box-sizing: border-box so the 48px size is unchanged.\n- [medium] year picker, future bars (2020-2025): Faded bars after the selected year are a darker, more olive green in the reference; build renders them paler and more washed out (lighter lime at low opacity). -> Raise opacity of the future bars (approx 0.45 -> 0.6) or use a darker fill such as rgba(150,170,80,0.6) instead of the lime at low alpha; check for a mix-blend-mode in the Figma layer.\n- [low] year picker, selected 2019 bar: Selected white bar has a ~2px dark outline in the reference; build outline is thinner (~1px). Prev/next arrows are also ~1px left and slightly smaller than reference (1386/1409 vs 1385/1408). -> border: 2px solid #1a1f1a on the selected bar; bump arrow font-size by ~1px and shift right 1px.\n- [low] settings > genre chips: Selected 'Lo-fi' chip is ~2px taller and 1px wider than reference (about 38px vs 36px high), so it no longer matches the height of the neighbouring chips; EDM and Classical are pushed 1px right; Hip-hop is ~1px narrower so Jazz sits 1px left. -> Give selected and unselected chips the same box: identical height (36px) and a border on both states (transparent border on the selected one) rather than adding border/padding only when selected.\n- [low] settings > accessibility: 'Word descriptions (voice)' row sits ~2px lower than reference (label baseline y~631 vs 629) while Captions and Mono audio rows match, so row spacing is 29/30 instead of 30/30. -> Remove the extra 1-2px top margin/padding on the first accessibility row; use a uniform 30px row height from the ACCESSIBILITY heading.\n- [low] settings > data checkboxes: All five labels are 1px lower than reference (176/208/240/272/304 vs 175/207/239/271/303) while the checkbox squares are in place, so label and box are slightly misaligned vertically. -> Tighten label line-height or add transform: translateY(-1px) / align-items: center on the checkbox rows.\n- [low] right panel mixtape list: The three stop cards plus the Add place / Share row are all 1px higher than reference (card 1 top 93 vs 94; Add place text y 325 vs 326). Title and header line above are in place. -> Add 1px to the gap between the mixtape title and the first card (margin-top +1px on the list).\n- [low] settings footer and caption pill: Sub-2px drifts: Help key badge 1px left, 'Keyboard map' 1px right with its K badge 2px right (275 vs 273); caption pill 1px narrower (right edge 379 vs 380); VOLUME label 1px right. -> Reduce gap between Help label and its kbd by 1px offset, and trim keyboard-map label letter-spacing/gap by 1-2px; add 1px horizontal padding to the caption pill."
+      },
+      "pass": false
     },
     "mixtape-shared": {
-      "diffPct": 1.31
+      "diffPct": 1.31,
+      "reviews": {
+        "fable": {
+          "slug": "mixtape-shared",
+          "score": 92,
+          "issues": [
+            {
+              "severity": "medium",
+              "region": "right panel (mixtape stop list)",
+              "problem": "The three stop cards, the Add place button and the Share button all sit ~1px higher than the reference (e.g. 'Amazon' baseline row y~114 vs 115, 'Central Africa' 184 vs 185, 'Indian Ocean' 254 vs 255, Add place/Share label 325 vs 326). Header label and title above are aligned, so the gap between title and first card is 1px too small.",
+              "fix": "Add 1px to the gap between the mixtape title and the stop list (e.g. margin-top/gap +1px on the list container) so the whole stack shifts down 1px."
+            },
+            {
+              "severity": "medium",
+              "region": "share modal",
+              "problem": "Card top, title (y~420) and URL field (y~463) match, but content below drifts up 1px: 'Save to my mixtapes' button y~566 vs 567, footnote lines 607/624/641 vs 608/625/642, and the card bottom edge is ~666 vs 667 (card 1px too short).",
+              "fix": "Increase the gap between the 'Link copied' button and the 'Save to my mixtapes' button by 1px (or make the Link copied button 1px taller, e.g. height 42px instead of 41px); card height should grow by 1px as a result."
+            },
+            {
+              "severity": "medium",
+              "region": "year picker header arrows",
+              "problem": "The left/right arrows next to '2019' are visibly smaller and thinner than the reference and sit ~1px left (x~1385/1408 vs 1386/1409); the reference arrows are longer with a heavier stroke.",
+              "fix": "Increase arrow glyph size/stroke (e.g. font-size +2px or SVG width 12px -> 14px, stroke-width 1.5) and nudge 1px right."
+            },
+            {
+              "severity": "low",
+              "region": "year picker bars (2020-2025, dimmed)",
+              "problem": "Diff shows solid differences on the dimmed future bars around x 1330-1385: their opacity/height do not exactly match the reference (build bars look slightly less transparent / differently sized than the reference).",
+              "fix": "Check the opacity of post-selection bars (reference looks ~0.45-0.5 with the green tint) and the individual bar heights for 2020-2023."
+            },
+            {
+              "severity": "low",
+              "region": "year picker label '2019'",
+              "problem": "The '2019' value sits ~1px right of the reference (x~1346 vs 1345).",
+              "fix": "Shift the year value 1px left (reduce the gap to the arrows group by 1px after resizing arrows)."
+            },
+            {
+              "severity": "low",
+              "region": "caption pill (bottom-left)",
+              "problem": "Pill is ~1px narrower (right edge x~379 vs 380) and the caption text is rendered marginally narrower; diff shows the right cap misaligned.",
+              "fix": "Check letter-spacing/font-size of the caption text (reference looks ~0.1px wider tracking) or set padding-right +1px."
+            },
+            {
+              "severity": "low",
+              "region": "top-left search field",
+              "problem": "Placeholder text starts ~1px right (x~96 vs 95) and the magnifier icon sits ~1px left (x~299 vs 300).",
+              "fix": "padding-left -1px on the input; move the search icon 1px right (right offset -1px)."
+            },
+            {
+              "severity": "low",
+              "region": "bottom player",
+              "problem": "'VOLUME' label is ~1px right of the reference (x~507 vs 506); waveform bars show minor yellow diff, likely sub-pixel bar positions.",
+              "fix": "Shift the VOLUME label 1px left; verify waveform bar x positions/gap use integer px matching Figma."
+            }
+          ],
+          "notes": "Very close reproduction: every element is present, text content is correct, colors, radii and the map/route/vehicle layer match. Remaining differences are 1px vertical drifts in the mixtape stop stack and the lower half of the share card, slightly undersized year-picker arrows, and small opacity/size mismatches on the dimmed year bars. No missing elements or wrong copy; the remaining work is sub-2px polish."
+        }
+      },
+      "review": {
+        "score": 92,
+        "model": "fable",
+        "notes": "Very close reproduction: every element is present, text content is correct, colors, radii and the map/route/vehicle layer match. Remaining differences are 1px vertical drifts in the mixtape stop stack and the lower half of the share card, slightly undersized year-picker arrows, and small opacity/size mismatches on the dimmed year bars. No missing elements or wrong copy; the remaining work is sub-2px polish.\n- [medium] right panel (mixtape stop list): The three stop cards, the Add place button and the Share button all sit ~1px higher than the reference (e.g. 'Amazon' baseline row y~114 vs 115, 'Central Africa' 184 vs 185, 'Indian Ocean' 254 vs 255, Add place/Share label 325 vs 326). Header label and title above are aligned, so the gap between title and first card is 1px too small. -> Add 1px to the gap between the mixtape title and the stop list (e.g. margin-top/gap +1px on the list container) so the whole stack shifts down 1px.\n- [medium] share modal: Card top, title (y~420) and URL field (y~463) match, but content below drifts up 1px: 'Save to my mixtapes' button y~566 vs 567, footnote lines 607/624/641 vs 608/625/642, and the card bottom edge is ~666 vs 667 (card 1px too short). -> Increase the gap between the 'Link copied' button and the 'Save to my mixtapes' button by 1px (or make the Link copied button 1px taller, e.g. height 42px instead of 41px); card height should grow by 1px as a result.\n- [medium] year picker header arrows: The left/right arrows next to '2019' are visibly smaller and thinner than the reference and sit ~1px left (x~1385/1408 vs 1386/1409); the reference arrows are longer with a heavier stroke. -> Increase arrow glyph size/stroke (e.g. font-size +2px or SVG width 12px -> 14px, stroke-width 1.5) and nudge 1px right.\n- [low] year picker bars (2020-2025, dimmed): Diff shows solid differences on the dimmed future bars around x 1330-1385: their opacity/height do not exactly match the reference (build bars look slightly less transparent / differently sized than the reference). -> Check the opacity of post-selection bars (reference looks ~0.45-0.5 with the green tint) and the individual bar heights for 2020-2023.\n- [low] year picker label '2019': The '2019' value sits ~1px right of the reference (x~1346 vs 1345). -> Shift the year value 1px left (reduce the gap to the arrows group by 1px after resizing arrows).\n- [low] caption pill (bottom-left): Pill is ~1px narrower (right edge x~379 vs 380) and the caption text is rendered marginally narrower; diff shows the right cap misaligned. -> Check letter-spacing/font-size of the caption text (reference looks ~0.1px wider tracking) or set padding-right +1px.\n- [low] top-left search field: Placeholder text starts ~1px right (x~96 vs 95) and the magnifier icon sits ~1px left (x~299 vs 300). -> padding-left -1px on the input; move the search icon 1px right (right offset -1px).\n- [low] bottom player: 'VOLUME' label is ~1px right of the reference (x~507 vs 506); waveform bars show minor yellow diff, likely sub-pixel bar positions. -> Shift the VOLUME label 1px left; verify waveform bar x positions/gap use integer px matching Figma."
+      },
+      "pass": false
     },
     "controls-hidden": {
-      "diffPct": 0.82
+      "diffPct": 0.82,
+      "reviews": {
+        "fable": {
+          "slug": "controls-hidden",
+          "score": 92,
+          "issues": [
+            {
+              "severity": "low",
+              "region": "right panel (mixtape stop cards)",
+              "problem": "Stop cards 2 and 3 and the Add place / Share row sit ~1px higher than the reference (card text baselines at y=184/254/325 vs 185/255/326; card 1 bottom edge ~154 vs ~155). The first card appears ~1px shorter, and the offset carries down the stack.",
+              "fix": "Increase the stop card height by 1px (e.g. min-height 61px instead of 60px, or add 0.5px vertical padding top and bottom) so subsequent rows land at y=165/235/305."
+            },
+            {
+              "severity": "low",
+              "region": "right panel (Add place / Share row)",
+              "problem": "Buttons look ~1px shorter: bottom edge at ~346 in build vs ~348 in reference, on top of the 1px upward shift.",
+              "fix": "Set the Add place and Share button height to 44px (currently looks like ~42-43px)."
+            },
+            {
+              "severity": "low",
+              "region": "right panel (active Amazon card)",
+              "problem": "Active card outline is weaker than the reference, which shows a distinct darker green 1.5-2px border and a slightly more saturated lime fill; the build's edge blends into the map.",
+              "fix": "Add border: 1.5px solid a darker lime/olive (about #6f8f1f at 60-70% opacity) or an equivalent inset box-shadow on the active card; check fill opacity is ~0.95."
+            },
+            {
+              "severity": "low",
+              "region": "bottom player pill",
+              "problem": "Pill and contents are offset ~1px: left edge 545 vs 544, pause button centre x=571 vs 570, skip button 617 vs 616, 'Amazon · 2019' starts 645 vs 644, while the chevron (769 vs 771) and 'Show controls' (788 vs 789) are shifted left, so the gap after the divider is ~2px tighter.",
+              "fix": "Widen the pill by 1px to the left (or reduce left padding by 1px) and add ~2px to the gap/padding-left between the divider and the chevron."
+            },
+            {
+              "severity": "low",
+              "region": "top-left search field",
+              "problem": "Placeholder text 'Search tracks or places' sits ~1px lower (y=49 vs 48) and ~1px right (x=96 vs 95) than the reference.",
+              "fix": "Reduce the input padding-left by 1px and nudge line-height or padding-top by -1px so the text is vertically centred at y=48."
+            }
+          ],
+          "notes": "Very close reproduction: every element is present, all text matches, map, route, pins, plane, boat, caption bar and header are aligned, and the 0.82% pixel diff is within anti-aliasing noise. The remaining differences are 1px-level stacking and height drift in the mixtape panel, a slightly tighter chevron gap in the player pill, and a weaker border on the active card. Nothing is missing or wrong at a level a user would notice; the items are polish only."
+        }
+      },
+      "review": {
+        "score": 92,
+        "model": "fable",
+        "notes": "Very close reproduction: every element is present, all text matches, map, route, pins, plane, boat, caption bar and header are aligned, and the 0.82% pixel diff is within anti-aliasing noise. The remaining differences are 1px-level stacking and height drift in the mixtape panel, a slightly tighter chevron gap in the player pill, and a weaker border on the active card. Nothing is missing or wrong at a level a user would notice; the items are polish only.\n- [low] right panel (mixtape stop cards): Stop cards 2 and 3 and the Add place / Share row sit ~1px higher than the reference (card text baselines at y=184/254/325 vs 185/255/326; card 1 bottom edge ~154 vs ~155). The first card appears ~1px shorter, and the offset carries down the stack. -> Increase the stop card height by 1px (e.g. min-height 61px instead of 60px, or add 0.5px vertical padding top and bottom) so subsequent rows land at y=165/235/305.\n- [low] right panel (Add place / Share row): Buttons look ~1px shorter: bottom edge at ~346 in build vs ~348 in reference, on top of the 1px upward shift. -> Set the Add place and Share button height to 44px (currently looks like ~42-43px).\n- [low] right panel (active Amazon card): Active card outline is weaker than the reference, which shows a distinct darker green 1.5-2px border and a slightly more saturated lime fill; the build's edge blends into the map. -> Add border: 1.5px solid a darker lime/olive (about #6f8f1f at 60-70% opacity) or an equivalent inset box-shadow on the active card; check fill opacity is ~0.95.\n- [low] bottom player pill: Pill and contents are offset ~1px: left edge 545 vs 544, pause button centre x=571 vs 570, skip button 617 vs 616, 'Amazon · 2019' starts 645 vs 644, while the chevron (769 vs 771) and 'Show controls' (788 vs 789) are shifted left, so the gap after the divider is ~2px tighter. -> Widen the pill by 1px to the left (or reduce left padding by 1px) and add ~2px to the gap/padding-left between the divider and the chevron.\n- [low] top-left search field: Placeholder text 'Search tracks or places' sits ~1px lower (y=49 vs 48) and ~1px right (x=96 vs 95) than the reference. -> Reduce the input padding-left by 1px and nudge line-height or padding-top by -1px so the text is vertically centred at y=48."
+      },
+      "pass": false
     },
     "playlist-hidden": {
-      "diffPct": 0.27
+      "diffPct": 0.27,
+      "reviews": {
+        "fable": {
+          "slug": "playlist-hidden",
+          "score": 91,
+          "issues": [
+            {
+              "severity": "medium",
+              "region": "year picker header arrows",
+              "problem": "The left/right arrows at top-right of the year picker render ~1px further left (x~1385/1408 vs 1386/1409) and look smaller and thinner than the reference glyphs; diff shows them solid red.",
+              "fix": "Use the same arrow glyph/SVG as Figma at the reference size and stroke (about 12px wide, 1.5px stroke) instead of a font arrow character; nudge the group right by 1px."
+            },
+            {
+              "severity": "low",
+              "region": "year picker header '2019' label",
+              "problem": "Label sits ~1px right and ~1px higher than reference (x~1330-1363, y~794 vs x~1329-1362, y~795).",
+              "fix": "Shift the label by translate(-1px, 1px), or correct line-height/padding so the baseline matches the 'Pick a year' title baseline."
+            },
+            {
+              "severity": "low",
+              "region": "year picker bars 2020-2025 (dimmed)",
+              "problem": "Diff shows thin vertical red edges on the dimmed future bars, indicating ~1px horizontal offset or width difference versus reference; lit bars 2001-2019 only show faint colour variance.",
+              "fix": "Check bar width/gap rounding for the last 6 bars (use integer px widths and gap, avoid fractional flex sizing) so edges land on the same pixels as the reference."
+            },
+            {
+              "severity": "low",
+              "region": "caption pill (bottom-left)",
+              "problem": "Pill is ~1px narrower: right edge at x~379 vs 380 and text ends ~1px earlier; diff shows the right rounded edge as a red arc.",
+              "fix": "Add 1px to the pill's horizontal padding or match the text letter-spacing/font-size exactly (text run is ~1px short)."
+            },
+            {
+              "severity": "low",
+              "region": "player VOLUME label",
+              "problem": "Label starts ~1px right (x~507 vs 506) and reads slightly heavier/darker than the reference; whole word is red in diff.",
+              "fix": "Reduce left offset by 1px and confirm font-size/weight/colour opacity of the label match Figma (looks one step lighter in reference)."
+            },
+            {
+              "severity": "low",
+              "region": "player prev/next buttons",
+              "problem": "Circular outlines of the prev and next buttons show a full red ring in the diff: border colour/opacity or diameter differs by about 1px from the reference.",
+              "fix": "Match the border to Figma (1px, same colour/alpha) and keep the button at exactly 40x40 with box-sizing: border-box."
+            },
+            {
+              "severity": "low",
+              "region": "map route, segment 2 to 3 and vehicles",
+              "problem": "Grey dotted segment between pin 2 and pin 3 has dots offset ~1px from reference along the curve (red in diff, whereas segment 1 to 2 is only anti-alias yellow); plane and boat icon edges also differ slightly.",
+              "fix": "Align the dash offset/start of the second path (stroke-dashoffset) and snap vehicle icon positions to the reference coordinates."
+            },
+            {
+              "severity": "low",
+              "region": "search field",
+              "problem": "Placeholder text baseline is ~1px lower than reference (y~49 vs 48) and the search icon shows edge differences.",
+              "fix": "Adjust input line-height/padding-top by 1px so the placeholder is vertically centred as in Figma."
+            }
+          ],
+          "notes": "Very close reproduction: every element is present, text content is correct, and layout, colours and the collapsed panel handle match. Remaining differences are all in the 1px range - year picker header arrows/label, dimmed bars, caption pill width, VOLUME label, button rings and the second route segment. The 0.27% pixel diff is consistent with this; nothing structural is wrong."
+        }
+      },
+      "review": {
+        "score": 91,
+        "model": "fable",
+        "notes": "Very close reproduction: every element is present, text content is correct, and layout, colours and the collapsed panel handle match. Remaining differences are all in the 1px range - year picker header arrows/label, dimmed bars, caption pill width, VOLUME label, button rings and the second route segment. The 0.27% pixel diff is consistent with this; nothing structural is wrong.\n- [medium] year picker header arrows: The left/right arrows at top-right of the year picker render ~1px further left (x~1385/1408 vs 1386/1409) and look smaller and thinner than the reference glyphs; diff shows them solid red. -> Use the same arrow glyph/SVG as Figma at the reference size and stroke (about 12px wide, 1.5px stroke) instead of a font arrow character; nudge the group right by 1px.\n- [low] year picker header '2019' label: Label sits ~1px right and ~1px higher than reference (x~1330-1363, y~794 vs x~1329-1362, y~795). -> Shift the label by translate(-1px, 1px), or correct line-height/padding so the baseline matches the 'Pick a year' title baseline.\n- [low] year picker bars 2020-2025 (dimmed): Diff shows thin vertical red edges on the dimmed future bars, indicating ~1px horizontal offset or width difference versus reference; lit bars 2001-2019 only show faint colour variance. -> Check bar width/gap rounding for the last 6 bars (use integer px widths and gap, avoid fractional flex sizing) so edges land on the same pixels as the reference.\n- [low] caption pill (bottom-left): Pill is ~1px narrower: right edge at x~379 vs 380 and text ends ~1px earlier; diff shows the right rounded edge as a red arc. -> Add 1px to the pill's horizontal padding or match the text letter-spacing/font-size exactly (text run is ~1px short).\n- [low] player VOLUME label: Label starts ~1px right (x~507 vs 506) and reads slightly heavier/darker than the reference; whole word is red in diff. -> Reduce left offset by 1px and confirm font-size/weight/colour opacity of the label match Figma (looks one step lighter in reference).\n- [low] player prev/next buttons: Circular outlines of the prev and next buttons show a full red ring in the diff: border colour/opacity or diameter differs by about 1px from the reference. -> Match the border to Figma (1px, same colour/alpha) and keep the button at exactly 40x40 with box-sizing: border-box.\n- [low] map route, segment 2 to 3 and vehicles: Grey dotted segment between pin 2 and pin 3 has dots offset ~1px from reference along the curve (red in diff, whereas segment 1 to 2 is only anti-alias yellow); plane and boat icon edges also differ slightly. -> Align the dash offset/start of the second path (stroke-dashoffset) and snap vehicle icon positions to the reference coordinates.\n- [low] search field: Placeholder text baseline is ~1px lower than reference (y~49 vs 48) and the search icon shows edge differences. -> Adjust input line-height/padding-top by 1px so the placeholder is vertically centred as in Figma."
+      },
+      "pass": false
     },
     "flight-1": {
-      "diffPct": 0.95
+      "diffPct": 0.95,
+      "reviews": {
+        "fable": {
+          "slug": "flight-1",
+          "score": 92,
+          "issues": [
+            {
+              "severity": "medium",
+              "region": "right panel (mixtape) stop cards",
+              "problem": "The three stop cards and the Add place / Share row sit about 1px higher than the reference (titles at y~114/184/254 vs 115/185/255; Add place label y~325 vs 326), and the diff outlines the full top and bottom borders of every card in red, so card height or vertical offset is off by ~1px, accumulating down the stack.",
+              "fix": "Check the card height and gap against Figma (card looks ~1px short or the list starts 1px early); set explicit height on the card and the exact gap/margin-top so the Add place row lands at the reference y."
+            },
+            {
+              "severity": "low",
+              "region": "caption pill (bottom-left)",
+              "problem": "Pill is ~2px narrower than the reference: right edge at x~439 vs ~441, and the text ends ~1px earlier. The diff shows a red arc along the pill's right edge.",
+              "fix": "Add ~2px to the pill width (right padding or explicit width) and verify letter-spacing/font-size of the caption text matches Figma."
+            },
+            {
+              "severity": "low",
+              "region": "map route, stop 2 to stop 3 segment",
+              "problem": "Dots of the grey second leg (Central Africa to Indian Ocean) are flagged red in the diff while the first leg is only anti-aliasing yellow, so dot positions along the path are shifted by ~1px or the dash phase differs.",
+              "fix": "Align stroke-dasharray / stroke-dashoffset for the second path with the Figma dot positions, or use the exported path coordinates directly."
+            },
+            {
+              "severity": "low",
+              "region": "map vehicles (plane at stop 1, sailboat)",
+              "problem": "Both icons show red edge marks in the diff: the plane near pin 1 and the boat near x~978,y~572 are offset by roughly 1px or rendered at a slightly different size/rotation.",
+              "fix": "Nudge the icon translate by 1px and confirm width/height and rotation equal the Figma values."
+            },
+            {
+              "severity": "low",
+              "region": "year picker",
+              "problem": "The dimmed future bars right of 2019 (x~1330-1385) show red vertical strips in the diff, indicating a slightly different opacity or bar x-position; the '2019' label and the arrow pair are ~1px off horizontally (label x~1330 vs 1329, arrows ~1385/1408 vs 1386/1409).",
+              "fix": "Match the opacity of the future bars to Figma and check the bar gap; adjust the header row justification/gap by 1px."
+            },
+            {
+              "severity": "low",
+              "region": "top-left search and player volume label",
+              "problem": "Search placeholder text is ~1px right and ~1px lower than the reference (x~96,y~49 vs 95,48); the VOLUME label is ~1px right (x~507 vs 506).",
+              "fix": "Reduce search input padding-left by 1px and check line-height/vertical centering; reduce the VOLUME label left offset by 1px."
+            }
+          ],
+          "notes": "Very close reproduction: every element is present with correct text, colors, icons and layering, and the 0.95% pixel diff is at the anti-aliasing floor. Remaining defects are all sub-2px offsets, the most systematic being a ~1px vertical drift in the mixtape card stack and a ~2px narrower caption pill. Pixel values are estimated by eye from the downscaled images and diff, so treat them as approximate. No missing, extra or wrong-content elements were found."
+        }
+      },
+      "review": {
+        "score": 92,
+        "model": "fable",
+        "notes": "Very close reproduction: every element is present with correct text, colors, icons and layering, and the 0.95% pixel diff is at the anti-aliasing floor. Remaining defects are all sub-2px offsets, the most systematic being a ~1px vertical drift in the mixtape card stack and a ~2px narrower caption pill. Pixel values are estimated by eye from the downscaled images and diff, so treat them as approximate. No missing, extra or wrong-content elements were found.\n- [medium] right panel (mixtape) stop cards: The three stop cards and the Add place / Share row sit about 1px higher than the reference (titles at y~114/184/254 vs 115/185/255; Add place label y~325 vs 326), and the diff outlines the full top and bottom borders of every card in red, so card height or vertical offset is off by ~1px, accumulating down the stack. -> Check the card height and gap against Figma (card looks ~1px short or the list starts 1px early); set explicit height on the card and the exact gap/margin-top so the Add place row lands at the reference y.\n- [low] caption pill (bottom-left): Pill is ~2px narrower than the reference: right edge at x~439 vs ~441, and the text ends ~1px earlier. The diff shows a red arc along the pill's right edge. -> Add ~2px to the pill width (right padding or explicit width) and verify letter-spacing/font-size of the caption text matches Figma.\n- [low] map route, stop 2 to stop 3 segment: Dots of the grey second leg (Central Africa to Indian Ocean) are flagged red in the diff while the first leg is only anti-aliasing yellow, so dot positions along the path are shifted by ~1px or the dash phase differs. -> Align stroke-dasharray / stroke-dashoffset for the second path with the Figma dot positions, or use the exported path coordinates directly.\n- [low] map vehicles (plane at stop 1, sailboat): Both icons show red edge marks in the diff: the plane near pin 1 and the boat near x~978,y~572 are offset by roughly 1px or rendered at a slightly different size/rotation. -> Nudge the icon translate by 1px and confirm width/height and rotation equal the Figma values.\n- [low] year picker: The dimmed future bars right of 2019 (x~1330-1385) show red vertical strips in the diff, indicating a slightly different opacity or bar x-position; the '2019' label and the arrow pair are ~1px off horizontally (label x~1330 vs 1329, arrows ~1385/1408 vs 1386/1409). -> Match the opacity of the future bars to Figma and check the bar gap; adjust the header row justification/gap by 1px.\n- [low] top-left search and player volume label: Search placeholder text is ~1px right and ~1px lower than the reference (x~96,y~49 vs 95,48); the VOLUME label is ~1px right (x~507 vs 506). -> Reduce search input padding-left by 1px and check line-height/vertical centering; reduce the VOLUME label left offset by 1px."
+      },
+      "pass": false
     },
     "flight-2": {
-      "diffPct": 0.89
+      "diffPct": 0.89,
+      "reviews": {
+        "fable": {
+          "slug": "flight-2",
+          "score": 90,
+          "issues": [
+            {
+              "severity": "medium",
+              "region": "right panel (mixtape cards + Add place/Share row)",
+              "problem": "Whole stack below the title sits ~1px higher than the reference: Amazon card spans ~y94-154 in build vs ~95-155 in reference; same 1px upward shift on Central Africa, Indian Ocean, Add place and Share (text baselines 114/184/254/325 vs 115/185/255/326). Diff shows solid red outlines on all card edges and doubled text.",
+              "fix": "Add 1px to the gap between the mixtape title and the first card (e.g. margin-top +1px on the list container) so the first card top lands at y=95."
+            },
+            {
+              "severity": "low",
+              "region": "bottom player waveform",
+              "problem": "Diff shows filled yellow blocks on most waveform bars (x~650-865), not just edges: bar heights/vertical positions differ by ~1-2px from reference; the played/unplayed bars around the red playhead (x~864) also differ.",
+              "fix": "Match bar heights to the Figma values exactly and vertically centre bars on y=812; check bar width 6px / gap 4px."
+            },
+            {
+              "severity": "low",
+              "region": "year picker, bars right of 2019",
+              "problem": "The faded future bars (x~1320-1415) show full-height diff strokes: opacity/colour of the dimmed bars and the selected 2019 bar outline differ slightly from reference (build appears slightly lighter/less saturated).",
+              "fix": "Set dimmed bars to the Figma fill/opacity (approx rgba(200,230,110,0.45)) and verify the selected bar is 14x28px with 2px dark border at x=1300."
+            },
+            {
+              "severity": "low",
+              "region": "year picker header",
+              "problem": "'2019' label and the arrow pair are offset ~1px (label x~1330 vs 1329; arrows at x~1385/1408 vs 1386/1409; label baseline ~1px higher).",
+              "fix": "Nudge the right-aligned header group: label +1px down / -1px left, arrows +1px right (check gap and right padding = 24px)."
+            },
+            {
+              "severity": "low",
+              "region": "map route, segment 2 -> 3 and sailboat",
+              "problem": "Grey dotted segment from pin 2 to pin 3 shows red dot-by-dot misregistration along its whole length (~1-2px), and the sailboat icon at ~(979,573) is offset ~1-2px.",
+              "fix": "Use the exact Figma path d-attribute and stroke-dasharray/dashoffset for the second leg; position boat with the Figma x/y (translate -50%,-50% on the path point)."
+            },
+            {
+              "severity": "low",
+              "region": "map route, plane icon",
+              "problem": "Plane at ~(605,437) shows a red outline in the diff indicating ~1px offset/rotation difference versus reference.",
+              "fix": "Match the Figma position and rotation of the plane (check transform-origin center and rotation angle)."
+            },
+            {
+              "severity": "low",
+              "region": "top-left search / bottom player label",
+              "problem": "Search placeholder text sits ~1px lower/right (baseline y~49 vs 48) and the VOLUME label is ~1px right (x~507 vs 506).",
+              "fix": "Reduce search input padding-top by 1px (or set line-height to match Figma); reduce VOLUME label left offset by 1px."
+            }
+          ],
+          "notes": "Very close reproduction: every element is present, text content, fonts, colours and icons all match, and the 0.89% pixel diff is at the anti-aliasing floor. The remaining differences are all sub-2px: a systematic 1px upward shift of the mixtape card stack, minor waveform and dimmed year-bar discrepancies, and slight misregistration of the second route leg and vehicle icons. Nothing a user would notice without an overlay, but they are consistently locatable in the diff."
+        }
+      },
+      "review": {
+        "score": 90,
+        "model": "fable",
+        "notes": "Very close reproduction: every element is present, text content, fonts, colours and icons all match, and the 0.89% pixel diff is at the anti-aliasing floor. The remaining differences are all sub-2px: a systematic 1px upward shift of the mixtape card stack, minor waveform and dimmed year-bar discrepancies, and slight misregistration of the second route leg and vehicle icons. Nothing a user would notice without an overlay, but they are consistently locatable in the diff.\n- [medium] right panel (mixtape cards + Add place/Share row): Whole stack below the title sits ~1px higher than the reference: Amazon card spans ~y94-154 in build vs ~95-155 in reference; same 1px upward shift on Central Africa, Indian Ocean, Add place and Share (text baselines 114/184/254/325 vs 115/185/255/326). Diff shows solid red outlines on all card edges and doubled text. -> Add 1px to the gap between the mixtape title and the first card (e.g. margin-top +1px on the list container) so the first card top lands at y=95.\n- [low] bottom player waveform: Diff shows filled yellow blocks on most waveform bars (x~650-865), not just edges: bar heights/vertical positions differ by ~1-2px from reference; the played/unplayed bars around the red playhead (x~864) also differ. -> Match bar heights to the Figma values exactly and vertically centre bars on y=812; check bar width 6px / gap 4px.\n- [low] year picker, bars right of 2019: The faded future bars (x~1320-1415) show full-height diff strokes: opacity/colour of the dimmed bars and the selected 2019 bar outline differ slightly from reference (build appears slightly lighter/less saturated). -> Set dimmed bars to the Figma fill/opacity (approx rgba(200,230,110,0.45)) and verify the selected bar is 14x28px with 2px dark border at x=1300.\n- [low] year picker header: '2019' label and the arrow pair are offset ~1px (label x~1330 vs 1329; arrows at x~1385/1408 vs 1386/1409; label baseline ~1px higher). -> Nudge the right-aligned header group: label +1px down / -1px left, arrows +1px right (check gap and right padding = 24px).\n- [low] map route, segment 2 -> 3 and sailboat: Grey dotted segment from pin 2 to pin 3 shows red dot-by-dot misregistration along its whole length (~1-2px), and the sailboat icon at ~(979,573) is offset ~1-2px. -> Use the exact Figma path d-attribute and stroke-dasharray/dashoffset for the second leg; position boat with the Figma x/y (translate -50%,-50% on the path point).\n- [low] map route, plane icon: Plane at ~(605,437) shows a red outline in the diff indicating ~1px offset/rotation difference versus reference. -> Match the Figma position and rotation of the plane (check transform-origin center and rotation angle).\n- [low] top-left search / bottom player label: Search placeholder text sits ~1px lower/right (baseline y~49 vs 48) and the VOLUME label is ~1px right (x~507 vs 506). -> Reduce search input padding-top by 1px (or set line-height to match Figma); reduce VOLUME label left offset by 1px."
+      },
+      "pass": false
     },
     "flight-3": {
-      "diffPct": 0.81
+      "diffPct": 0.81,
+      "reviews": {
+        "fable": {
+          "slug": "flight-3",
+          "score": 87,
+          "issues": [
+            {
+              "severity": "medium",
+              "region": "right panel / active row 2 (Central Africa) subtitle",
+              "problem": "'Fires · playing now' is muted olive-grey (~#5f6b4a, regular weight) in the reference; the build renders it near-black and visibly heavier, so it competes with the title.",
+              "fix": "On the active row subtitle use the muted colour (approx rgba(26,31,22,0.6)) and font-weight 400, not the primary ink colour."
+            },
+            {
+              "severity": "medium",
+              "region": "right panel / played row 1 (Amazon) subtitle",
+              "problem": "'Fires · played' is dark ink (~#1b1f1a) in the reference; the build renders it light grey (~#6f6f6a). Looks like the played/active subtitle colours are swapped.",
+              "fix": "Played-row subtitle: color = primary ink (#1b1f1a-ish), opacity 1. Keep the grey only for the upcoming row 3."
+            },
+            {
+              "severity": "medium",
+              "region": "right panel / active row 2 border",
+              "problem": "Reference has a clearly visible ~1.5-2px dark ink outline (#1b1f1a) around the lime card; the build's outline is ~1px and lighter, barely visible on the left/top edges. Content in the reference also sits ~1px further right (handle x 1117 vs 1116, title x 1178 vs 1177), consistent with the thicker border.",
+              "fix": "border: 2px solid #1b1f1a on the active card (or box-shadow: 0 0 0 2px #1b1f1a) and keep inner padding so content shifts 1px right."
+            },
+            {
+              "severity": "low",
+              "region": "right panel / active row 2 fill",
+              "problem": "Reference lime fill is nearly opaque and flat (~#c5dc6e); the build is more translucent, with the map showing through as a lighter glossy patch on the right half.",
+              "fix": "Raise the active card background alpha to ~0.95 (e.g. rgba(200,224,110,0.95)) or drop the gradient/backdrop highlight."
+            },
+            {
+              "severity": "low",
+              "region": "right panel / vertical rhythm",
+              "problem": "From row 2 down everything sits 1px higher in the build, growing to ~2px at the bottom: row 2 top 162 vs 161, row 3 top 232 vs 231, Add place/Share bottom 346 vs 344. Row 1 is aligned.",
+              "fix": "Add 1px to the gap after row 1 (gap 9px -> 10px or match Figma auto-layout spacing) and make the Add place / Share buttons 44px tall instead of ~43px."
+            },
+            {
+              "severity": "low",
+              "region": "year picker / prev-next arrows",
+              "problem": "Arrows are smaller and dimmer in the build: ~9px wide vs ~11.5px in the reference, and lower opacity; left arrow starts at x 1384 vs 1386.",
+              "fix": "Increase arrow font-size/icon width to ~12px, color #fff at ~0.9 opacity, and nudge the left arrow 1-2px right (gap ~11px between arrows)."
+            },
+            {
+              "severity": "low",
+              "region": "year picker / future bars 2020-2025",
+              "problem": "Bars after the selected year are a more saturated olive-green with higher opacity in the reference; the build's are paler and more washed out against the ice. The '2019' readout is also 1px right (1330 vs 1329).",
+              "fix": "Future bars: background rgba(140,160,70,0.75)-ish instead of the current lighter/lower-alpha lime; check opacity is ~0.7-0.75 rather than ~0.5."
+            }
+          ],
+          "notes": "Very close build: map, pins, route, boat, player, caption and search all line up within 1px and text content is exact. Remaining defects are concentrated in the mixtape panel, where the played/active subtitle colours appear swapped, the active card lacks its heavy dark outline and opaque fill, and rows drift 1-2px upward. The year picker's arrows and future-year bars are slightly too small/pale. VOLUME label and search placeholder are 1px off, not deducted."
+        }
+      },
+      "review": {
+        "score": 87,
+        "model": "fable",
+        "notes": "Very close build: map, pins, route, boat, player, caption and search all line up within 1px and text content is exact. Remaining defects are concentrated in the mixtape panel, where the played/active subtitle colours appear swapped, the active card lacks its heavy dark outline and opaque fill, and rows drift 1-2px upward. The year picker's arrows and future-year bars are slightly too small/pale. VOLUME label and search placeholder are 1px off, not deducted.\n- [medium] right panel / active row 2 (Central Africa) subtitle: 'Fires · playing now' is muted olive-grey (~#5f6b4a, regular weight) in the reference; the build renders it near-black and visibly heavier, so it competes with the title. -> On the active row subtitle use the muted colour (approx rgba(26,31,22,0.6)) and font-weight 400, not the primary ink colour.\n- [medium] right panel / played row 1 (Amazon) subtitle: 'Fires · played' is dark ink (~#1b1f1a) in the reference; the build renders it light grey (~#6f6f6a). Looks like the played/active subtitle colours are swapped. -> Played-row subtitle: color = primary ink (#1b1f1a-ish), opacity 1. Keep the grey only for the upcoming row 3.\n- [medium] right panel / active row 2 border: Reference has a clearly visible ~1.5-2px dark ink outline (#1b1f1a) around the lime card; the build's outline is ~1px and lighter, barely visible on the left/top edges. Content in the reference also sits ~1px further right (handle x 1117 vs 1116, title x 1178 vs 1177), consistent with the thicker border. -> border: 2px solid #1b1f1a on the active card (or box-shadow: 0 0 0 2px #1b1f1a) and keep inner padding so content shifts 1px right.\n- [low] right panel / active row 2 fill: Reference lime fill is nearly opaque and flat (~#c5dc6e); the build is more translucent, with the map showing through as a lighter glossy patch on the right half. -> Raise the active card background alpha to ~0.95 (e.g. rgba(200,224,110,0.95)) or drop the gradient/backdrop highlight.\n- [low] right panel / vertical rhythm: From row 2 down everything sits 1px higher in the build, growing to ~2px at the bottom: row 2 top 162 vs 161, row 3 top 232 vs 231, Add place/Share bottom 346 vs 344. Row 1 is aligned. -> Add 1px to the gap after row 1 (gap 9px -> 10px or match Figma auto-layout spacing) and make the Add place / Share buttons 44px tall instead of ~43px.\n- [low] year picker / prev-next arrows: Arrows are smaller and dimmer in the build: ~9px wide vs ~11.5px in the reference, and lower opacity; left arrow starts at x 1384 vs 1386. -> Increase arrow font-size/icon width to ~12px, color #fff at ~0.9 opacity, and nudge the left arrow 1-2px right (gap ~11px between arrows).\n- [low] year picker / future bars 2020-2025: Bars after the selected year are a more saturated olive-green with higher opacity in the reference; the build's are paler and more washed out against the ice. The '2019' readout is also 1px right (1330 vs 1329). -> Future bars: background rgba(140,160,70,0.75)-ish instead of the current lighter/lower-alpha lime; check opacity is ~0.7-0.75 rather than ~0.5."
+      },
+      "pass": false
     },
     "sonification-over-time": {
-      "diffPct": 0.85
+      "diffPct": 0.85,
+      "reviews": {
+        "fable": {
+          "slug": "sonification-over-time",
+          "score": 93,
+          "issues": [
+            {
+              "severity": "medium",
+              "region": "right panel / stop cards",
+              "problem": "Stop cards are ~1-2px shorter than the reference and the stack drifts upward: Amazon card bottom edge at y~154 vs ~156 in reference; titles sit at y~114/184/254 vs 115/185/255, subtitles at 135/205/275 vs 136/206/276. Diff shows full double outlines on all three cards and doubled text.",
+              "fix": "Increase each stop card height by ~2px (e.g. min-height 62px instead of 60px, or +1px vertical padding top and bottom) while keeping the 8px gap, so card tops land at y=94/164/234 and bottoms at 156/226/296."
+            },
+            {
+              "severity": "medium",
+              "region": "right panel / Add place + Share row",
+              "problem": "Button row is ~2px shorter and its content 1px higher: bottom edge at y~346 vs ~348 in reference; labels 'Add place' and 'Share' baseline at y~325 vs ~326. Share button shows solid yellow outline in the diff.",
+              "fix": "Set the button row height to 44px (top 304, bottom 348) instead of ~42px; vertically center labels (line-height/padding +1px top and bottom)."
+            },
+            {
+              "severity": "low",
+              "region": "bottom-left caption pill",
+              "problem": "Pill is ~2px narrower: right edge at x~440 vs ~442 in reference; caption text ends at x~430 vs ~431, so text runs slightly tighter.",
+              "fix": "Add ~1px horizontal padding per side (or width: 418px) and check letter-spacing on the caption text (reference is ~0.01em wider overall at 18px)."
+            },
+            {
+              "severity": "low",
+              "region": "top-left search field",
+              "problem": "Placeholder 'Search tracks or places' sits ~1px lower (y~49 vs 48) and the magnifier icon ~1px to the left (x~299 vs 300).",
+              "fix": "Nudge placeholder up 1px (reduce padding-top by 1px / fix line-height) and reduce the icon's right inset by 1px."
+            },
+            {
+              "severity": "low",
+              "region": "right panel / mixtape title",
+              "problem": "Title 'Fires of the Southern Hemisphere' shows sub-pixel horizontal drift across the line in the diff (glyphs progressively misaligned toward the right), suggesting slightly different letter-spacing or font rendering; pencil icon is offset ~1px.",
+              "fix": "Match Figma letter-spacing on the title exactly (try letter-spacing: -0.01em vs 0) and confirm font-weight 600 with the same font file."
+            }
+          ],
+          "notes": "Very close reproduction: every element is present, text content is exact, colors, radii, player card, chart bars, year labels and transport controls align to within anti-aliasing. The remaining differences are small vertical metric errors in the right panel (cards and button row about 2px short, contents 1px high) plus a 2px narrower caption pill and 1px nudges in the search field. At 0.85% pixel diff this is within the font anti-aliasing floor, so only the pointable 1-2px offsets were deducted."
+        }
+      },
+      "review": {
+        "score": 93,
+        "model": "fable",
+        "notes": "Very close reproduction: every element is present, text content is exact, colors, radii, player card, chart bars, year labels and transport controls align to within anti-aliasing. The remaining differences are small vertical metric errors in the right panel (cards and button row about 2px short, contents 1px high) plus a 2px narrower caption pill and 1px nudges in the search field. At 0.85% pixel diff this is within the font anti-aliasing floor, so only the pointable 1-2px offsets were deducted.\n- [medium] right panel / stop cards: Stop cards are ~1-2px shorter than the reference and the stack drifts upward: Amazon card bottom edge at y~154 vs ~156 in reference; titles sit at y~114/184/254 vs 115/185/255, subtitles at 135/205/275 vs 136/206/276. Diff shows full double outlines on all three cards and doubled text. -> Increase each stop card height by ~2px (e.g. min-height 62px instead of 60px, or +1px vertical padding top and bottom) while keeping the 8px gap, so card tops land at y=94/164/234 and bottoms at 156/226/296.\n- [medium] right panel / Add place + Share row: Button row is ~2px shorter and its content 1px higher: bottom edge at y~346 vs ~348 in reference; labels 'Add place' and 'Share' baseline at y~325 vs ~326. Share button shows solid yellow outline in the diff. -> Set the button row height to 44px (top 304, bottom 348) instead of ~42px; vertically center labels (line-height/padding +1px top and bottom).\n- [low] bottom-left caption pill: Pill is ~2px narrower: right edge at x~440 vs ~442 in reference; caption text ends at x~430 vs ~431, so text runs slightly tighter. -> Add ~1px horizontal padding per side (or width: 418px) and check letter-spacing on the caption text (reference is ~0.01em wider overall at 18px).\n- [low] top-left search field: Placeholder 'Search tracks or places' sits ~1px lower (y~49 vs 48) and the magnifier icon ~1px to the left (x~299 vs 300). -> Nudge placeholder up 1px (reduce padding-top by 1px / fix line-height) and reduce the icon's right inset by 1px.\n- [low] right panel / mixtape title: Title 'Fires of the Southern Hemisphere' shows sub-pixel horizontal drift across the line in the diff (glyphs progressively misaligned toward the right), suggesting slightly different letter-spacing or font rendering; pencil icon is offset ~1px. -> Match Figma letter-spacing on the title exactly (try letter-spacing: -0.01em vs 0) and confirm font-weight 600 with the same font file."
+      },
+      "pass": false
     }
   }
 }
