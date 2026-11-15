@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Stage, Scrim } from "@/components/Stage";
-import { MapLayer, Plane, HoverCard } from "@/components/MapLayer";
+import { MapLayer, Plane, HoverCard, PinCursor } from "@/components/MapLayer";
 import { MapDot } from "@/components/MapDot";
 import { TopLeft } from "@/components/TopLeft";
 import { Mixtape, type Stop } from "@/components/Mixtape";
@@ -23,6 +23,8 @@ import { TIMELINE_SECONDS, useJukebox, type SoundRecipe } from "@/lib/sonify/use
 import { LAYERS, type LayerId, type SonMode } from "@/lib/sonify/layers";
 import { HowButton, HowPanel } from "@/components/how/HowPanel";
 import { FLAGS } from "@/lib/flags";
+import { canListen, listenOnce, parseCommand, VOICE_HELP, type Command } from "@/lib/voice";
+import { MicButton } from "@/components/voice/MicButton";
 import { MapFx, LAYER_RGB } from "@/components/fx/MapFx";
 import { VOICE_WORDS } from "@/lib/sonify/instruments";
 import { LAYER_VOICE } from "@/lib/sonify/useJukebox";
@@ -34,7 +36,10 @@ const TRACK_SECONDS = Math.round(TIMELINE_SECONDS); // one pass of the SVS 3912 
 const MAX_STOPS = 7;
 const FLIGHT_MS = 2600; // plane flight between songs
 const LANDING_GAP_MS = 700; // quiet beat after landing, before the next song starts
-const IDLE_CAPTION = "To add a place, click the map, or type its name in the search box and press Enter.";
+const IDLE_CAPTION = FLAGS.voiceControl
+  ? 'Click the map to add a place, type its name in the search box, or press V and say "add Amazon".'
+  : "To add a place, click the map, or type its name in the search box and press Enter.";
+const PROBE_STEP = 30; // px per arrow key on the map (Shift = 3x)
 
 type Place = { name: string; x: number; y: number; surface: Surface };
 
@@ -108,6 +113,13 @@ export function EarthApp() {
   const [saved, setSaved] = useState(false);
   const [query, setQuery] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
+  // Keyboard exploring: a listening pin moved over the map with the arrow keys (the map has focus).
+  const [probe, setProbe] = useState<{ x: number; y: number } | null>(null);
+  // Voice commands: listening for one spoken command; `heard` is the text so far.
+  const [listening, setListening] = useState(false);
+  const [heard, setHeard] = useState("");
+  const stopListening = useRef<() => void>(() => {});
+  const runRef = useRef<(c: Command) => void>(() => {}); // the newest runCommand (it reads fresh state)
   // "How this sound is made" panel: opens for a place when it is added, or with the ? key / button.
   const [how, setHow] = useState<Place | null>(null);
   const [howOpen, setHowOpen] = useState(false);
@@ -289,8 +301,8 @@ export function EarthApp() {
   }, [audioKey, playing, jb, layer, sonMode]);
   const { setVolume: setEngineVolume, setMono: setEngineMono } = jb; // stable; `jb` itself is a new object every render
   useEffect(() => {
-    setEngineVolume(speaking ? volume * 0.3 : volume); // duck the music under the voice
-  }, [volume, speaking, setEngineVolume]);
+    setEngineVolume(listening ? volume * 0.12 : speaking ? volume * 0.3 : volume); // duck the music under the voice, and more so for the microphone
+  }, [volume, speaking, listening, setEngineVolume]);
   useEffect(() => {
     setEngineMono(mono);
   }, [mono, setEngineMono]);
@@ -421,6 +433,14 @@ export function EarthApp() {
 
   const search = useCallback(() => {
     if (!query.trim()) return;
+    if (FLAGS.voiceControl) {
+      // the search box also takes the voice commands, typed: "next", "wildfires", "remove last"...
+      const cmd = parseCommand(query);
+      if (cmd.type !== "unknown") {
+        setQuery("");
+        return runRef.current(cmd); // "take me to the Sahara" and plain "Sahara" both end up as { add }
+      }
+    }
     const hit = findArea(query);
     if (!hit) {
       setNotice(`No place called "${query}" yet.`);
@@ -434,6 +454,102 @@ export function EarthApp() {
     if (i >= 0) playStop(i);
     else addPlace(place);
   }, [query, stops, playStop, addPlace]);
+
+  // ---- voice / typed commands ----
+  const runCommand = (cmd: Command) => {
+    const lbl = LAYERS[layer].label;
+    switch (cmd.type) {
+      case "play":
+        if (!stops.length) return setNotice('No places yet. Say "add Amazon", or click the map.');
+        if (current < 0) return playStop(0);
+        setPlaying(true);
+        return setNotice(`Playing ${stops[current].name}.`);
+      case "pause": setPlaying(false); return setNotice("Paused.");
+      case "next": if (!stops.length) return setNotice("No places yet."); return next();
+      case "prev": return prev();
+      case "add": {
+        const hit = findArea(cmd.place);
+        if (!hit) return setNotice(`I don't know a place called ${cmd.place}.`);
+        const { x, y } = latLonToXy(hit.lat, hit.lon);
+        const place: Place = { name: hit.name, x, y, surface: hit.water ? "water" : "land" };
+        const i = stops.findIndex((st) => st.name === place.name);
+        return i >= 0 ? goTo(i) : addPlace(place);
+      }
+      case "remove": {
+        const i = cmd.place === null ? stops.length - 1 : stops.findIndex((st) => st.name.toLowerCase().includes(cmd.place!));
+        return i >= 0 ? removeStop(i) : setNotice(cmd.place ? `${cmd.place} is not in the mixtape.` : "The mixtape is empty.");
+      }
+      case "clear":
+        setFlight(null); setStops([]); setCurrent(-1); setPlaying(false); setElapsed(0);
+        return setNotice("Mixtape cleared.");
+      case "layer": setLayer(cmd.layer); return setNotice(`Now playing ${LAYERS[cmd.layer].label.toLowerCase()}${FLAGS.instruments ? `: ${VOICE_WORDS[LAYER_VOICE[cmd.layer]]}` : ""}.`);
+      case "mode": setSonMode(cmd.mode); return setNotice(cmd.mode === "area" ? "Reading the picture square by square." : "Following the average through time.");
+      case "volume": {
+        const v = Math.max(0, Math.min(1, +(volume + cmd.delta).toFixed(2)));
+        setVolume(v);
+        return setNotice(`Volume ${Math.round(v * 100)} percent.`);
+      }
+      case "status":
+        return setNotice(nowPlaying ? `${playing ? "Playing" : "Paused on"} ${nowPlaying.name}, ${lbl}. ${song?.caption ?? ""} Place ${current + 1} of ${stops.length}.` : stops.length ? `Nothing is playing. ${stops.length} places in the mixtape.` : "Nothing yet. Add a place to begin.");
+      case "help": return setNotice(VOICE_HELP);
+      case "how": return toggleHow();
+      case "game": return router.push("/play");
+      case "menu": return setMenuOpen(cmd.open);
+      default: return setNotice(`I heard "${cmd.text}". Try: add Amazon, next, wildfires, or help.`);
+    }
+  };
+  useEffect(() => {
+    runRef.current = runCommand;
+  });
+
+  const toggleListening = useCallback(() => {
+    if (listening) {
+      stopListening.current();
+      setListening(false);
+      return;
+    }
+    if (!canListen()) return setNotice("Voice commands need Chrome, Edge or Safari. You can type the same commands in the search box.");
+    stopSpeaking(); // never let our own voice talk into the microphone
+    setHeard("");
+    setListening(true);
+    stopListening.current = listenOnce(setHeard, (alts, error) => {
+      setListening(false);
+      if (error === "not-allowed" || error === "service-not-allowed") return setNotice("The microphone is blocked. Allow it in the address bar, or type commands in the search box.");
+      if (!alts.length) return setNotice("I didn't hear anything. Press V and try again.");
+      // take the first alternative that makes sense
+      const cmds = alts.map(parseCommand);
+      runRef.current(cmds.find((c) => c.type !== "unknown") ?? cmds[0]);
+    });
+  }, [listening]);
+  useEffect(() => () => stopListening.current(), []);
+
+  // ---- keyboard exploring of the map ----
+  const probeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onMapKey = (e: React.KeyboardEvent) => {
+    const d = ({ ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] } as Record<string, number[]>)[e.key];
+    const at = probe ?? { x: W / 2, y: H / 2 };
+    if (d) {
+      e.preventDefault();
+      e.stopPropagation();
+      const k = PROBE_STEP * (e.shiftKey ? 3 : 1);
+      const p = { x: Math.min(W - 10, Math.max(10, at.x + d[0] * k)), y: Math.min(H - 10, Math.max(60, at.y + d[1] * k)) };
+      setProbe(p);
+      setHover(null); // moving: no info, as with the mouse
+      if (probeTimer.current) clearTimeout(probeTimer.current);
+      probeTimer.current = setTimeout(() => {
+        const place = describe(p.x, p.y);
+        setHover(place);
+        setNotice(`${place.name}. ${stops.some((st) => st.name === place.name) ? "In your mixtape: Enter plays it." : "Enter adds it."}`);
+      }, HOVER_DELAY_MS);
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const place = describe(at.x, at.y);
+      const i = stops.findIndex((st) => st.name === place.name);
+      if (i >= 0) goTo(i);
+      else addPlace(place);
+    }
+  };
+  useEffect(() => () => { if (probeTimer.current) clearTimeout(probeTimer.current); }, []);
 
   // Keyboard map (matches the key hints in the Figma labels).
   useEffect(() => {
@@ -457,6 +573,7 @@ export function EarthApp() {
       }
       else if (k === "backspace") { if (stops.length) removeStop(stops.length - 1); } // undo the last place added
       else if (k === "?") toggleHow();
+      else if (k === "v" && FLAGS.voiceControl) toggleListening();
       else if (k === " " && t.tagName !== "BUTTON" && t.tagName !== "INPUT") {
         e.preventDefault();
         togglePlay();
@@ -464,7 +581,7 @@ export function EarthApp() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [next, search, togglePlay, toggleHow, removeStop, stops.length]);
+  }, [next, search, togglePlay, toggleHow, toggleListening, removeStop, stops.length]);
 
   // ---- derived view data
   const activeIdx = current;
@@ -493,6 +610,7 @@ export function EarthApp() {
   }));
   const meta = `Mixtape · ${stops.length} ${stops.length === 1 ? "place" : "places"} · ${mmss(stops.length * 164)}`; // Figma: 3 stops = 8:12 (2:44 per stop incl. travel)
   const caption =
+    (listening ? (heard ? `Heard: "${heard}"` : 'Listening… try "add Amazon", "next" or "wildfires".') : null) ??
     notice ??
     (flight ? `Flying to ${flight.to.name}…` : nowPlaying ? (song ? song.caption : `Loading ${layerLabel.toLowerCase()}…`) : IDLE_CAPTION);
   // Text to speech: read each new message aloud once. A notice ("Added X") is read when it appears; the line under it
@@ -507,6 +625,7 @@ export function EarthApp() {
       s.notice = s.base = null;
       return stopSpeaking();
     }
+    if (listening) return; // the microphone is open: stay silent
     const line = notice ?? baseLine;
     if (!line || line === (notice ? s.notice : s.base)) {
       if (!notice) s.notice = null;
@@ -518,7 +637,7 @@ export function EarthApp() {
       s.base = line;
     }
     speak(line, () => setSpeaking(true), () => setSpeaking(false));
-  }, [notice, baseLine, voiceOn]);
+  }, [notice, baseLine, voiceOn, listening]);
   useEffect(() => () => { stopSpeaking(); said.current = { notice: null, base: null }; }, []); // leaving the page (e.g. to the game) stops the voice
   // "Place · layer · first date – last date" (the dates the song runs through)
   const span = song ? ` · ${song.dates[0]} – ${song.dates[1]}` : "";
@@ -540,7 +659,22 @@ export function EarthApp() {
           <Stage>
             <MapLayer>
               {/* Map hit area: pin cursor + debounced area info. Dots and panels sit above it. */}
-              <div className={s.hit} onPointerMove={onMapMove} onPointerLeave={onMapLeave} onClick={onMapClick} aria-hidden="true" />
+              {FLAGS.mapKeyboard ? (
+                <div
+                  className={s.hit}
+                  onPointerMove={onMapMove}
+                  onPointerLeave={onMapLeave}
+                  onClick={onMapClick}
+                  tabIndex={0}
+                  role="application"
+                  aria-label="World map. Arrow keys move the listening pin (hold Shift for bigger steps). Pause to hear where you are. Enter adds that place."
+                  onKeyDown={onMapKey}
+                  onFocus={(e) => e.target.matches(":focus-visible") && setProbe((p) => p ?? { x: W / 2, y: H / 2 })}
+                  onBlur={() => { setProbe(null); setHover(null); }}
+                />
+              ) : (
+                <div className={s.hit} onPointerMove={onMapMove} onPointerLeave={onMapLeave} onClick={onMapClick} aria-hidden="true" />
+              )}
               {FLAGS.visualFx && nowPlaying && <MapFx song={song} live={playing && !flight} x={nowPlaying.x} y={nowPlaying.y} getTime={jb.time} getLevel={jb.level} />}
               <svg className={s.routes} width={W} height={H} aria-hidden="true">
                 <defs>
@@ -577,6 +711,7 @@ export function EarthApp() {
                   onDragStart={(e) => startDrag(i, e)}
                 />
               ))}
+              {probe && <PinCursor left={probe.x - 13.5} top={probe.y - 8.4} />}
               {hover && card && <HoverCard left={card.left} top={card.top} title={`${hover.name} · ${layerLabel}`} hint="Click to add to mixtape" />}
             </MapLayer>
 
@@ -642,6 +777,7 @@ export function EarthApp() {
             )}
             {!menuOpen && !howOpen && (stops.length > 0 || nowPlaying) && <HowButton onClick={toggleHow} />}
 
+            {FLAGS.voiceControl && <MicButton listening={listening} onClick={toggleListening} left={341} top={24} />}
             {menuOpen ? (
               <>
                 <MenuPanel onClose={() => setMenuOpen(false)} onMode={(m) => m === "play" && router.push("/play")} layer={layer} onLayer={setLayer} sonMode={sonMode} onSonMode={setSonMode} captions={captionsOn} onCaptions={setCaptionsOn} voice={voiceOn} onVoice={(on) => { setVoiceOn(on); setPref("earthfm-voice", on ? "1" : "0"); }} mono={mono} onMono={(on) => { setMono(on); setPref("earthfm-mono", on ? "1" : "0"); }} />

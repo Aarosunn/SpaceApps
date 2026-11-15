@@ -46,3 +46,6 @@
 @media (prefers-reduced-motion: reduce) {
   .fx .leg, .fx button[aria-label^="Place "] { animation: none; }
 }
+
+/* keyboard exploring: the map shows a focus ring when it has keyboard focus */
+.hit:focus-visible { outline: 3px solid var(--lime); outline-offset: -6px; border-radius: 10px; }

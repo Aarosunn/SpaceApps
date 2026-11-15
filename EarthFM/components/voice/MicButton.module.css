@@ -1,0 +1,23 @@
+.mic {
+  position: absolute;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: var(--paper-80);
+  box-shadow: var(--shadow-chip);
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.on { background: var(--lime); outline: 2px solid var(--ink); outline-offset: -2px; }
+.ring {
+  position: absolute;
+  inset: -4px;
+  border-radius: 18px;
+  border: 3px solid var(--lime);
+  animation: micPulse 1.1s ease-out infinite;
+  pointer-events: none;
+}
+@keyframes micPulse { from { opacity: 0.9; transform: scale(0.95); } to { opacity: 0; transform: scale(1.35); } }
+@media (prefers-reduced-motion: reduce) { .ring { animation: none; opacity: 0.8; } }
