@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { asset } from "./asset";
 import { Icon } from "./Icon";
 import s from "./Player.module.css";
@@ -30,9 +31,34 @@ type PlayerProps = {
   onNext?: () => void;
   onVolume?: (v: number) => void;
   onSeek?: (fraction: number) => void; // click anywhere on the progress bar: 0 = start, 1 = end
+  getSpectrum?: () => Float32Array | null; // live audio spectrum (dB per bin): the bars dance with the sound
 };
 
-export function SoundPlayer({ time = "0:57 / 1:15", volume = 0.75, playing = true, progress, onPlayPause, onPrev, onNext, onVolume, onSeek }: PlayerProps) {
+export function SoundPlayer({ time = "0:57 / 1:15", volume = 0.75, playing = true, progress, onPlayPause, onPrev, onNext, onVolume, onSeek, getSpectrum }: PlayerProps) {
+  // Live waveform: each bar stretches with the energy in its slice of the spectrum (a visual mirror of the sound).
+  const wave = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const bars = wave.current ? ([...wave.current.children] as HTMLElement[]) : [];
+    const reset = () => bars.forEach((b) => (b.style.transform = ""));
+    if (!getSpectrum || !playing || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return reset();
+    let raf = 0;
+    const tick = () => {
+      const sp = getSpectrum();
+      if (sp)
+        bars.forEach((b, i) => {
+          // bars cover about 100 Hz to 4 kHz (where the music is), spaced more finely at the low end
+          const db = sp[Math.min(sp.length - 1, 1 + Math.floor((i / bars.length) ** 1.6 * 42))];
+          const k = Number.isFinite(db) ? Math.max(0, Math.min(1, (db + 100) / 65)) : 0;
+          b.style.transform = `scaleY(${(0.4 + 0.75 * k).toFixed(2)})`; // the row clips at its own height, so stay near 1
+        });
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => {
+      cancelAnimationFrame(raf);
+      reset();
+    };
+  }, [getSpectrum, playing]);
   const pct = `${Math.max(0, Math.min(1, volume)) * 100}%`; // track spans the slider box, so 100% lands on its right end
   const head = progress === undefined ? PLAYHEAD : Math.min(WAVE.length - 1, Math.floor(progress * WAVE.length));
   const setFromClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -56,6 +82,7 @@ export function SoundPlayer({ time = "0:57 / 1:15", volume = 0.75, playing = tru
         <div className={s.timeline}>
           <p className={s.time}>{time}</p>
           <div
+            ref={wave}
             className={s.wave}
             style={onSeek ? { cursor: "pointer" } : undefined}
             role={onSeek ? "slider" : undefined}

@@ -22,6 +22,10 @@ import { legPath, pointOnLeg } from "@/lib/route";
 import { TIMELINE_SECONDS, useJukebox, type SoundRecipe } from "@/lib/sonify/useJukebox";
 import { LAYERS, type LayerId, type SonMode } from "@/lib/sonify/layers";
 import { HowButton, HowPanel } from "@/components/how/HowPanel";
+import { FLAGS } from "@/lib/flags";
+import { MapFx, LAYER_RGB } from "@/components/fx/MapFx";
+import { VOICE_WORDS } from "@/lib/sonify/instruments";
+import { LAYER_VOICE } from "@/lib/sonify/useJukebox";
 import s from "./EarthApp.module.css";
 
 const W = 1440, H = 900;
@@ -494,7 +498,7 @@ export function EarthApp() {
   // Text to speech: read each new message aloud once. A notice ("Added X") is read when it appears; the line under it
   // (the song, the flight or the opening hint) is read when it changes, and is not repeated after every notice.
   // A song line starts with the place and the data, which sighted users read in the bar above the player.
-  const songLine = !flight && nowPlaying && song ? `${nowPlaying.name}, ${layerLabel}. ${song.caption}` : null;
+  const songLine = !flight && nowPlaying && song ? `${nowPlaying.name}, ${layerLabel}${FLAGS.instruments ? `, played as ${VOICE_WORDS[LAYER_VOICE[layer]]}` : ""}. ${song.caption}` : null;
   const baseLine = songLine ?? (flight ? `Flying to ${flight.to.name}` : nowPlaying ? null : IDLE_CAPTION); // null while loading
   const said = useRef<{ notice: string | null; base: string | null }>({ notice: null, base: null });
   useEffect(() => {
@@ -530,13 +534,14 @@ export function EarthApp() {
   };
 
   return (
-    <div className={s.viewport} onPointerDownCapture={() => void jb.ensure()} onKeyDownCapture={() => void jb.ensure()}>
+    <div className={`${s.viewport} ${FLAGS.visualFx ? s.fx : ""}`} style={{ "--layer-rgb": LAYER_RGB[layer] } as React.CSSProperties} onPointerDownCapture={() => void jb.ensure()} onKeyDownCapture={() => void jb.ensure()}>
       <div ref={stageRef} className={s.scaler} style={{ width: W * scale, height: H * scale }}>
         <div style={{ transform: `scale(${scale})`, transformOrigin: "0 0", width: W, height: H }}>
           <Stage>
             <MapLayer>
               {/* Map hit area: pin cursor + debounced area info. Dots and panels sit above it. */}
               <div className={s.hit} onPointerMove={onMapMove} onPointerLeave={onMapLeave} onClick={onMapClick} aria-hidden="true" />
+              {FLAGS.visualFx && nowPlaying && <MapFx song={song} live={playing && !flight} x={nowPlaying.x} y={nowPlaying.y} getTime={jb.time} getLevel={jb.level} />}
               <svg className={s.routes} width={W} height={H} aria-hidden="true">
                 <defs>
                   <filter id="route-shadow" x="-5%" y="-5%" width="110%" height="110%">
@@ -585,6 +590,7 @@ export function EarthApp() {
                   time={`${mmss(elapsed)} / ${mmss(TRACK_SECONDS)}`}
                   progress={elapsed / TRACK_SECONDS}
                   onSeek={seek}
+                  getSpectrum={FLAGS.visualFx ? jb.spectrum : undefined}
                   playing={playing}
                   volume={volume}
                   onPlayPause={togglePlay}

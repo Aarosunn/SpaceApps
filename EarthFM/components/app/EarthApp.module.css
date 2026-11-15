@@ -37,3 +37,12 @@
   filter: url(#route-shadow);
   transition: opacity 300ms ease;
 }
+
+/* ---- visual effects (FLAGS.visualFx) ---- */
+.fx .leg { animation: legIn 700ms ease both; }
+@keyframes legIn { from { stroke-opacity: 0; stroke-width: 11; } to { stroke-opacity: 1; stroke-width: 5; } }
+.fx button[aria-label^="Place "] { animation: dotPop 380ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+@keyframes dotPop { from { transform: scale(0.2); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .fx .leg, .fx button[aria-label^="Place "] { animation: none; }
+}

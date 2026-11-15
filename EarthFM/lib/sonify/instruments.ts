@@ -36,7 +36,7 @@ export function createInstruments(Tone: any, core: any) {
   const limiter = new Tone.Limiter({ threshold: -3 }).toDestination();
   const master = new Tone.Gain({ gain: 0.5 }).connect(limiter);
   const meter = new Tone.Meter({ smoothing: 0.75 });
-  const fft = new Tone.Analyser("fft", 64);
+  const fft = new Tone.Analyser("fft", 256); // 256 bins of ~94 Hz
   master.connect(meter);
   master.connect(fft);
   const reverb = new Tone.Reverb({ decay: 2.6, wet: 1 });
@@ -185,7 +185,7 @@ export function createInstruments(Tone: any, core: any) {
         b.synth.triggerAttackRelease(hz * 2, dur * 2, t, vel);
       }
     },
-    /* For the visuals: loudness 0..1 and a 64-bin spectrum (dB). */
+    /* For the visuals: loudness 0..1 and a 256-bin spectrum (dB). */
     level(): number {
       const db = meter.getValue() as number;
       return Number.isFinite(db) ? Math.max(0, Math.min(1, (db + 48) / 42)) : 0;
