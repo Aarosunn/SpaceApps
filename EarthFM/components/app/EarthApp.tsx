@@ -927,6 +927,20 @@ export function EarthApp() {
               <Mixtape
                 compact
                 title={mixName ?? "My mixtape"}
+                onRename={(name) => {
+                  const old = mixName ?? (stops.length ? autoName(stops) : null);
+                  setMixName(name);
+                  // a saved mixtape keeps its place in the list under the new name
+                  if (old && mixes.some((m) => m.name === old)) {
+                    deleteMix(old);
+                    const mix = currentMix();
+                    if (mix) {
+                      setMixes(saveMix({ ...mix, name }));
+                      setSavedSig(sig);
+                    } else setMixes(loadMixes());
+                  }
+                  setNotice(`Mixtape renamed to ${name}.`);
+                }}
                 meta={meta}
                 stops={mixStops}
                 emptyText="No places yet. Click the map or search for one."

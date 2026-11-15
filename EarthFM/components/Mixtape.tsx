@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { asset } from "./asset";
 import { BleedAsset, Icon } from "./Icon";
 import s from "./Mixtape.module.css";
@@ -26,6 +27,7 @@ export function Mixtape({
   addDisabled,
   emptyText,
   onRemove,
+  onRename,
   children,
 }: {
   meta?: string;
@@ -40,8 +42,16 @@ export function Mixtape({
   addDisabled?: boolean;
   emptyText?: string;
   onRemove?: (n: number) => void; // shows a remove (x) button per stop
+  onRename?: (name: string) => void; // the title becomes editable (pencil button, Enter saves, Escape cancels)
   children?: React.ReactNode; // anchored under the actions row (share popover)
 }) {
+  const [draft, setDraft] = useState<string | null>(null); // the name being typed (null = not editing)
+  const commit = () => {
+    if (draft === null) return;
+    const name = draft.trim();
+    if (name && name !== title) onRename?.(name);
+    setDraft(null);
+  };
   return (
     <section className={`${s.panel} ${compact ? s.compact : ""}`} aria-label="Mixtape">
       <div className={s.titleBlock}>
@@ -52,8 +62,32 @@ export function Mixtape({
           </button>
         </div>
         <div className={s.nameRow}>
-          <p className={s.name}>{title}</p>
-          <BleedAsset style={{ position: "relative", width: 16, height: 16, flexShrink: 0 }} inset="-10.46% -16.8% -22.92% -16.67%" src={asset("/figma/icon-edit.svg")} />
+          {draft !== null ? (
+            <input
+              className={s.nameInput}
+              value={draft}
+              autoFocus
+              maxLength={60}
+              aria-label="Mixtape name"
+              onChange={(e) => setDraft(e.target.value)}
+              onFocus={(e) => e.target.select()}
+              onBlur={commit}
+              onKeyDown={(e) => {
+                e.stopPropagation(); // typing a name must not trigger the app's key shortcuts
+                if (e.key === "Enter") commit();
+                else if (e.key === "Escape") setDraft(null);
+              }}
+            />
+          ) : (
+            <p className={s.name}>{title}</p>
+          )}
+          {onRename ? (
+            <button className={s.editBtn} aria-label={`Rename mixtape (now: ${title})`} onClick={() => setDraft(title)}>
+              <BleedAsset style={{ position: "relative", width: 16, height: 16, flexShrink: 0 }} inset="-10.46% -16.8% -22.92% -16.67%" src={asset("/figma/icon-edit.svg")} />
+            </button>
+          ) : (
+            <BleedAsset style={{ position: "relative", width: 16, height: 16, flexShrink: 0 }} inset="-10.46% -16.8% -22.92% -16.67%" src={asset("/figma/icon-edit.svg")} />
+          )}
         </div>
       </div>
       {stops.length === 0 && emptyText && <p className={s.empty}>{emptyText}</p>}
