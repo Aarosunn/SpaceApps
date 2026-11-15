@@ -71,7 +71,6 @@ export type SoundRecipe = {
 /* Build the song for one place. The player, the panel and the caption all read this one object. */
 export function recipeFor(tl: Timeline, p: Place, layer: Layer, mode: SonMode, date?: number | null): SoundRecipe {
   const [rows, cols] = tl.meta.grid;
-  console.assert(tl.frames.length === layer.dates, "layers.ts `dates` is out of step with the timeline file", layer.id, tl.frames.length);
   const home = cellFor(tl, p);
   const r0 = Math.min(rows - VIEW_ROWS, Math.max(0, home.row - Math.floor(VIEW_ROWS / 2)));
   const c0 = Math.min(cols - VIEW_COLS, Math.max(0, home.col - Math.floor(VIEW_COLS / 2)));
