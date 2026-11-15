@@ -420,6 +420,7 @@ export function EarthApp() {
         setMenuOpen(false);
         setShareOpen(false);
       }
+      else if (k === "backspace") { if (stops.length) removeStop(stops.length - 1); } // undo the last place added
       else if (k === "?") toggleHow();
       else if (k === " " && t.tagName !== "BUTTON") {
         e.preventDefault();
@@ -428,7 +429,7 @@ export function EarthApp() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [next, search, togglePlay, toggleHow]);
+  }, [next, search, togglePlay, toggleHow, removeStop, stops.length]);
 
   // ---- derived view data
   const activeIdx = current;

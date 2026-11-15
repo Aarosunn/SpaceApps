@@ -15,15 +15,21 @@
 .nowText {
   font-family: var(--mono);
   font-weight: 500;
-  font-size: 13px;
+  font-size: 11px;
   color: var(--ink);
   white-space: nowrap;
+  /* long "place · layer · dates" lines shorten with "…" instead of pushing the hide button out of the bar */
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .spacer { flex: 1 0 0; min-width: 1px; height: 1px; }
 .hideBtn {
+  flex: none;
   width: 32px;
   height: 32px;
-  border-radius: 10px;
+  border-radius: 999px;
   background: var(--ink-08);
   display: flex;
   align-items: center;
