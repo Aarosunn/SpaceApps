@@ -6,7 +6,7 @@ Needs Python with numpy, and Node on the PATH. Writes nothing into the repo (wor
 Exit code 0 = every check passed. Each line is PASS or FAIL with the reason.
 
 What it checks
-  1 every Python recipe's own self-test
+  1 every Python recipe's own self-test, and the formula audit against published reference values
   2 both song scripts re-render byte-for-byte what is committed (reproducible from recipes-python/data)
   3 odd frames do not break the pipeline: all land, one flat colour, a single ocean pixel, noise, a 1-frame clip
   4 every committed timeline / note list is well formed and every committed WAV is valid and not silent
@@ -86,6 +86,9 @@ try:
     for s in ('wavio', 'musickit', 'synth', 'p4_colscan', 'p5_colormap', 'p6_features', 'p7_render', 'p8_midi', 'score'):
         check(f'recipe self-test: {s}.py', lambda s=s: run([sys.executable, f'{s}.py'], work).strip().splitlines()[-1][:70])
 
+    check('formula audit against published reference values (audit_formulas.py)',
+          lambda: run([sys.executable, 'audit_formulas.py'], work).strip().splitlines()[-1])
+
     # ---- 2) the songs are reproducible from the committed inputs
     out = os.path.join(tmp, 'out')
     os.makedirs(out)
@@ -164,6 +167,17 @@ try:
         shutil.copy(f, web)
     for t in ('sonify-core.test.js', 'jukebox-engine.test.js'):
         check(f'node test: {t}', lambda t=t: run(['node', t], web).strip().splitlines()[-1][:60])
+    def rhythms_agree():
+        import musickit as mk
+        js = json.loads(run(['node', '-e', "const c=require('./sonify-core.js');const o={};for(let n=1;n<=16;n++)for(let k=0;k<=n;k++)"
+                                           "o[k+','+n]=c.euclid(k,n).map(x=>x?'x':'.').join('');console.log(JSON.stringify(o))"], web))
+        for key, pat in js.items():
+            k, n = map(int, key.split(','))
+            py = mk.pattern(mk.euclid(k, n))
+            assert pat.count('x') == k and len(pat) == n, f'browser E({k},{n}) = {pat}'
+            assert py in (pat + pat), f'E({k},{n}): Python {py} is not a rotation of browser {pat}'
+        return f'{len(js)} patterns, same rhythm up to starting point'
+    check('rhythm generator: Python and browser agree', rhythms_agree)
     pages = sorted(glob.glob(os.path.join(WEB, '**', '*.html'), recursive=True))
     for page in pages:
         rel = os.path.relpath(page, HERE).replace(os.sep, '/')
