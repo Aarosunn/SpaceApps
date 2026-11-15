@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Stage, Scrim } from "@/components/Stage";
 import { MapLayer, Plane, HoverCard } from "@/components/MapLayer";
 import { MapDot } from "@/components/MapDot";
@@ -79,6 +80,7 @@ function useFitScale() {
 
 export function EarthApp() {
   const scale = useFitScale();
+  const router = useRouter();
   const sample = useMapSampler();
   const stageRef = useRef<HTMLDivElement>(null);
 
@@ -473,7 +475,7 @@ export function EarthApp() {
 
             {menuOpen ? (
               <>
-                <MenuPanel onClose={() => setMenuOpen(false)} />
+                <MenuPanel onClose={() => setMenuOpen(false)} onMode={(m) => m === "play" && router.push("/play")} />
                 <TopLeftOpen onMenu={() => setMenuOpen(false)} query={query} onQuery={setQuery} />
               </>
             ) : (

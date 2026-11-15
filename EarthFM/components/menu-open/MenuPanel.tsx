@@ -16,8 +16,12 @@ const DATA = [
 ] as const;
 const GENRES = ["Lo-fi", "EDM", "Classical", "Ambient", "Hip-hop", "Jazz"];
 
-function Seg({ a: l, b, label }: { a: string; b: string; label: string }) {
-  const [first, setFirst] = useState(true);
+function Seg({ a: l, b, label, initialFirst = true, onPick }: { a: string; b: string; label: string; initialFirst?: boolean; onPick?: (first: boolean) => void }) {
+  const [first, setFirst0] = useState(initialFirst);
+  const setFirst = (v: boolean) => {
+    setFirst0(v);
+    onPick?.(v);
+  };
   return (
     <div className={s.seg} role="radiogroup" aria-label={label}>
       <button role="radio" aria-checked={first} className={`${s.segBtn} ${first ? s.segOn : ""}`} onClick={() => setFirst(true)}>{l}</button>
@@ -53,7 +57,7 @@ function DataItem({ name, initial, bold }: { name: string; initial: boolean; bol
   );
 }
 
-export function MenuPanel({ onClose }: { onClose?: () => void }) {
+export function MenuPanel({ onClose, onMode }: { onClose?: () => void; onMode?: (mode: "globe" | "play") => void }) {
   const [genre, setGenre] = useState(GENRES[0]);
   return (
     <section className={s.panel} aria-label="Settings">
@@ -81,7 +85,7 @@ export function MenuPanel({ onClose }: { onClose?: () => void }) {
       </div>
       <div className={s.group}>
         <p className={s.label}>Mode</p>
-        <Seg a="Globe" b="Play (game)" label="Mode" />
+        <Seg a="Globe" b="Play (game)" label="Mode" onPick={(globe) => onMode?.(globe ? "globe" : "play")} />
       </div>
       <div className={s.access}>
         <div className={s.group}>
