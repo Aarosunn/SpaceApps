@@ -16,6 +16,28 @@ export function forSpeech(text: string): string {
     .trim();
 }
 
+/* Pick the most natural English voice the computer has: Apple "Premium"/"Enhanced" (Siri-like) voices, Edge "Natural"
+   voices, then Google's voice in Chrome. Old novelty voices (Albert, Bells, Zarvox...) are never used. */
+const ROBOTIC = /albert|bad news|bahh|bells|boing|bubbles|cellos|zarvox|whisper|trinoids|jester|organ|superstar|wobble|good news|junior|ralph|fred|kathy|grandma|grandpa|rocko|shelley|flo|eddy|reed|sandy/i;
+const RANKED = [/\(premium\)/i, /natural|neural/i, /\(enhanced\)/i, /google us english/i, /google uk english female/i, /^(ava|zoe|allison|susan|serena)\b/i, /samantha|karen|daniel|moira/i];
+let chosen: SpeechSynthesisVoice | undefined;
+function pickVoice(): SpeechSynthesisVoice | undefined {
+  if (chosen) return chosen;
+  const s = synth();
+  const voices = (s?.getVoices() ?? []).filter((v) => v.lang.toLowerCase().startsWith("en") && !ROBOTIC.test(v.name));
+  if (!voices.length) return undefined;
+  const us = (v: SpeechSynthesisVoice) => (v.lang === "en-US" ? 0 : 1);
+  for (const re of RANKED) {
+    const hit = voices.filter((v) => re.test(v.name)).sort((a, b) => us(a) - us(b))[0];
+    if (hit) return (chosen = hit);
+  }
+  return (chosen = voices.find((v) => v.default) ?? voices[0]);
+}
+if (typeof window !== "undefined" && "speechSynthesis" in window) {
+  window.speechSynthesis.getVoices(); // Chrome loads voices late: ask early, re-pick when they arrive
+  window.speechSynthesis.addEventListener?.("voiceschanged", () => (chosen = undefined));
+}
+
 let current: SpeechSynthesisUtterance | null = null;
 let retry: (() => void) | null = null;
 
@@ -35,7 +57,10 @@ export function speak(text: string, onStart?: () => void, onEnd?: () => void): b
   }
   s.cancel();
   const u = new SpeechSynthesisUtterance(forSpeech(text));
-  u.lang = "en-US";
+  const v = pickVoice();
+  if (v) u.voice = v;
+  u.lang = v?.lang ?? "en-US";
+  u.rate = 0.98; // a touch slower reads more naturally
   current = u; // the cancelled utterance's end event arrives later: only the newest one may report
   u.onstart = () => current === u && onStart?.();
   u.onend = () => current === u && onEnd?.();
