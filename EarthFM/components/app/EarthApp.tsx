@@ -14,6 +14,8 @@ import { SharePopover } from "@/components/mixtape-shared/SharePopover";
 import { ShowControlsPill } from "@/components/controls-hidden/ShowControlsPill";
 import { HalfScrim } from "@/components/controls-hidden/Caption";
 import { WordCaption } from "./WordCaption";
+import { isLongTalk, setVoiceEnabled, speakLong, speakNow, stopSpeaking, useSpokenCaption, useVoiceEnabled } from "@/lib/voice";
+import { HELP, INTRO } from "@/lib/guide";
 import { ShowPlaylistTab } from "@/components/playlist-hidden/ShowPlaylistTab";
 import { asset } from "@/components/asset";
 import { findArea, latLonToXy, layerFor, regionName, surfaceOf, xyToLatLon, type Surface } from "@/lib/geo";
@@ -135,6 +137,7 @@ export function EarthApp() {
 
   const onMapMove = (e: React.PointerEvent) => {
     const p = toStage(e);
+    cursor.current = null; // the mouse takes over from the keyboard explore cursor
     setHover(null); // moving: no info
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => {
@@ -352,6 +355,98 @@ export function EarthApp() {
   }, [query, stops, playStop, playPreview]);
 
   // Keyboard map (matches the key hints in the Figma labels).
+  // V turns spoken descriptions on or off from anywhere (same setting as the menu switch).
+  const voiceOn = useVoiceEnabled();
+  const toggleVoice = useCallback(() => {
+    setVoiceEnabled(!voiceOn);
+    speakNow(voiceOn ? "Voice descriptions off." : "Voice descriptions on.");
+  }, [voiceOn]);
+
+  const spokenHover = useRef<string | null>(null);
+  const hintSpoken = useRef(false);
+  const captionRef = useRef("");
+
+  // ---- Audio navigation for people who can't see the map.
+  // `announce` speaks (when voice is on) and also updates a hidden live region for screen readers.
+  const [announcement, setAnnouncement] = useState("");
+  const announce = useCallback(
+    (text: string) => {
+      setAnnouncement((a) => (a === text ? text + "\u00a0" : text)); // force a re-read of repeated text
+      if (voiceOn) speakNow(text);
+    },
+    [voiceOn],
+  );
+  const help = useCallback(() => {
+    setAnnouncement(HELP);
+    if (voiceOn) speakLong(HELP);
+  }, [voiceOn]);
+
+  // First visit in this tab: read the intro on the first click or key press (browsers only allow speech after one).
+  const introDone = useRef(false);
+  useEffect(() => {
+    try {
+      introDone.current = sessionStorage.getItem("earthfm.intro") === "done";
+    } catch {}
+  }, []);
+  const playIntroOnce = useCallback(() => {
+    if (introDone.current) return false;
+    introDone.current = true;
+    try {
+      sessionStorage.setItem("earthfm.intro", "done");
+    } catch {}
+    if (!voiceOn) return false;
+    speakLong(INTRO);
+    return true;
+  }, [voiceOn]);
+  useEffect(() => {
+    const onPointer = () => playIntroOnce();
+    window.addEventListener("pointerdown", onPointer, { once: true });
+    return () => window.removeEventListener("pointerdown", onPointer);
+  }, [playIntroOnce]);
+
+  // Explore cursor: Shift + arrows move an invisible pointer over the map; the hover card follows it.
+  const cursor = useRef<{ x: number; y: number } | null>(null);
+  const STEP = 60;
+  const moveCursor = (dx: number, dy: number) => {
+    const c = cursor.current ?? (lastHover.current ? { x: lastHover.current.x, y: lastHover.current.y } : { x: W / 2, y: H / 2 });
+    const x = Math.max(10, Math.min(W - 10, c.x + dx * STEP));
+    const y = Math.max(10, Math.min(H - 10, c.y + dy * STEP));
+    const edge = cursor.current && x === c.x && y === c.y;
+    cursor.current = { x, y };
+    const place = describe(x, y);
+    lastHover.current = place;
+    spokenHover.current = `${place.name}|${place.layer}`; // so the hover reader doesn't say it twice
+    setHover(place);
+    const inMix = stops.findIndex((st) => st.name === place.name);
+    announce(`${edge ? "Edge of the map. " : ""}${place.name}. ${place.layer}${inMix >= 0 ? `, stop ${inMix + 1} in your mixtape` : ""}.`);
+  };
+  const actOn = (place: Place) => {
+    const i = stops.findIndex((st) => st.name === place.name);
+    if (i >= 0) goTo(i);
+    else playPreview(place);
+  };
+
+  const changeYear = (y: number) => {
+    const ny = Math.max(2001, Math.min(2025, y));
+    setYear(ny);
+    announce(ny === year ? `Already at ${ny}.` : String(ny));
+  };
+  const changeVolume = (d: number) => {
+    const v = Math.max(0, Math.min(1, +(volume + d).toFixed(2)));
+    setVolume(v);
+    announce(`Volume ${Math.round(v * 100)} percent.`);
+  };
+  const status = () => {
+    const playingText = nowPlaying
+      ? `${flight ? "Flying to" : playing ? "Playing" : "Paused on"} ${nowPlaying.name}, ${nowPlaying.layer}, ${year}${!preview && current >= 0 ? `, stop ${current + 1} of ${stops.length}` : ""}.`
+      : `Nothing playing. The year is ${year}.`;
+    return `${playingText} Your mixtape has ${stops.length} ${stops.length === 1 ? "stop" : "stops"}. Volume ${Math.round(volume * 100)} percent.`;
+  };
+  const listMix = () =>
+    stops.length
+      ? `Your mixtape: ${stops.map((st, i) => `${i + 1}, ${st.name}, ${st.layer}`).join(". ")}.`
+      : "Your mixtape is empty. Explore with Shift and the arrows, then press plus to add a place.";
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement;
@@ -360,26 +455,79 @@ export function EarthApp() {
         if (e.key === "Enter" && t.getAttribute("placeholder")?.startsWith("Search")) search();
         return;
       }
+      if (e.metaKey || e.ctrlKey) return; // leave browser shortcuts alone
+      if (playIntroOnce()) return; // the first key press starts the intro
       const k = e.key.toLowerCase();
-      if (k === "m") setMenuOpen((o) => !o);
-      else if (k === "b") setControlsHidden((h) => !h);
-      else if (k === "p") setPlaylistHidden((h) => !h);
-      else if (k === "n") next();
-      else if (k === "escape") {
+      const onControl = t.tagName === "BUTTON" || t.tagName === "A" || t.getAttribute("role") === "slider";
+      if (e.shiftKey && k.startsWith("arrow")) {
+        e.preventDefault();
+        if (k === "arrowleft") moveCursor(-1, 0);
+        else if (k === "arrowright") moveCursor(1, 0);
+        else if (k === "arrowup") moveCursor(0, -1);
+        else moveCursor(0, 1);
+        return;
+      }
+      if (k === "m") {
+        setMenuOpen((o) => !o);
+        announce(menuOpen ? "Settings closed." : "Settings open. Press Tab to move through the options, Escape to close.");
+      } else if (k === "b") {
+        setControlsHidden((h) => !h);
+        announce(controlsHidden ? "Controls shown." : "Controls hidden.");
+      } else if (k === "p") {
+        setPlaylistHidden((h) => !h);
+        announce(playlistHidden ? "Playlist shown." : "Playlist hidden.");
+      } else if (k === "n" || k === "]") {
+        if (!stops.length) announce("Your mixtape is empty.");
+        next();
+      } else if (k === "[") {
+        if (!stops.length) announce("Your mixtape is empty.");
+        prev();
+      } else if (/^[1-9]$/.test(k)) {
+        const i = Number(k) - 1;
+        if (stops[i]) goTo(i);
+        else announce(`There is no stop ${k}. Your mixtape has ${stops.length}.`);
+      } else if (k === "v") toggleVoice();
+      else if (k === "h" || k === "?" || k === "k") help();
+      else if (k === "w") announce(status());
+      else if (k === "l") announce(listMix());
+      else if (k === "r") announce(captionRef.current);
+      else if (k === "y") announce(`The year is ${year}.`);
+      else if (k === "g") router.push("/play");
+      else if (k === "/") {
+        e.preventDefault();
+        (document.querySelector('input[placeholder^="Search"]') as HTMLInputElement | null)?.focus();
+        announce("Search. Type a place name and press Enter.");
+      } else if (k === "escape") {
+        if (isLongTalk()) stopSpeaking();
         setMenuOpen(false);
         setShareOpen(false);
         setPickMode(false);
-      } else if (k === "arrowleft") setYear((y) => Math.max(2001, y - 1));
-      else if (k === "arrowright") setYear((y) => Math.min(2025, y + 1));
-      else if (k === "+" || k === "=") addPlace(hover ?? lastHover.current ?? preview);
-      else if (k === " " && t.tagName !== "BUTTON") {
+      } else if (onControl && (k === "enter" || k === " " || k.startsWith("arrow"))) return; // let the focused control handle it
+      else if (k === "arrowleft") changeYear(year - 1);
+      else if (k === "arrowright") changeYear(year + 1);
+      else if (k === "home") changeYear(2001);
+      else if (k === "end") changeYear(2025);
+      else if (k === "arrowup") {
         e.preventDefault();
+        changeVolume(0.1);
+      } else if (k === "arrowdown") {
+        e.preventDefault();
+        changeVolume(-0.1);
+      } else if (k === "enter") {
+        const place = cursor.current ? describe(cursor.current.x, cursor.current.y) : hover ?? lastHover.current;
+        if (place) actOn(place);
+        else announce("Hold Shift and use the arrow keys to pick a place first.");
+      } else if (k === "+" || k === "=") addPlace(hover ?? lastHover.current ?? preview);
+      else if (k === " ") {
+        e.preventDefault();
+        if (!nowPlaying) announce("Nothing to play yet. Explore with Shift and the arrows, then press Enter.");
+        else if (!flight) announce(playing ? "Paused." : "Playing.");
         togglePlay();
       } else return;
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [next, addPlace, hover, preview, search, togglePlay]);
+  });
 
   // ---- derived view data
   const activeIdx = preview ? -1 : current;
@@ -409,6 +557,22 @@ export function EarthApp() {
   const caption =
     notice ??
     (flight ? `Flying to ${flight.to.name}…` : pickMode ? "Click a place on the map to add it." : nowPlaying ? CAPTIONS[nowPlaying.layer] ?? CAPTIONS.Fires : IDLE_CAPTION);
+  useSpokenCaption(caption);
+  useEffect(() => {
+    captionRef.current = caption;
+  }, [caption]);
+
+  // Read out what the pointer is resting on (the same text as the hover card), so the map can be explored by ear.
+  // The how-to hint is spoken only the first time; the same place isn't repeated while the pointer wiggles inside it.
+  useEffect(() => {
+    if (!voiceOn || !hover || isLongTalk()) return;
+    const key = `${hover.name}|${hover.layer}`;
+    if (key === spokenHover.current) return;
+    spokenHover.current = key;
+    const hint = hintSpoken.current ? "" : " Click to play, or press plus to add it to your mixtape.";
+    hintSpoken.current = true;
+    speakNow(`${hover.name}. ${hover.layer}, ${year}.${hint}`);
+  }, [hover, voiceOn, year]);
   const nowText = flight ? `Up next: ${flight.to.name} ${year}` : nowPlaying ? `Now listening: ${nowPlaying.name} ${year}` : "Now listening: nothing yet";
   // The vehicle rides the current leg (current stop -> next) as the track plays; boat if the next stop is at sea.
   const legOpacity = (i: number) =>
@@ -427,7 +591,7 @@ export function EarthApp() {
           <Stage>
             <MapLayer>
               {/* Map hit area: pin cursor + debounced area info. Dots and panels sit above it. */}
-              <div className={s.hit} onPointerMove={onMapMove} onPointerLeave={onMapLeave} onClick={onMapClick} aria-label="Map: click a place to play it, + to add it" />
+              <div className={s.hit} onPointerMove={onMapMove} onPointerLeave={onMapLeave} onClick={onMapClick} aria-label="Map: click a place to play it, + to add it. Keyboard: hold Shift and use the arrow keys to explore, Enter to play." />
               <svg className={s.routes} width={W} height={H} aria-hidden="true">
                 <defs>
                   <filter id="route-shadow" x="-5%" y="-5%" width="110%" height="110%">
@@ -457,6 +621,9 @@ export function EarthApp() {
             {controlsHidden ? <HalfScrim /> : <Scrim />}
             {!controlsHidden && <YearPicker layer={LAND_LAYER} year={year} onYear={setYear} arrows={false} />}
             <WordCaption text={caption} />
+            <h1 className="sr-only">EarthFM</h1>
+            <p className="sr-only">{INTRO}</p>
+            <p className="sr-only" aria-live="assertive">{announcement}</p>
             {!controlsHidden && (
               <>
                 <NowListening text={nowText} onHide={() => setControlsHidden(true)} />
@@ -507,7 +674,7 @@ export function EarthApp() {
 
             {menuOpen ? (
               <>
-                <MenuPanel onClose={() => setMenuOpen(false)} onMode={(m) => m === "play" && router.push("/play")} />
+                <MenuPanel onHelp={help} onClose={() => setMenuOpen(false)} onMode={(m) => m === "play" && router.push("/play")} />
                 <TopLeftOpen onMenu={() => setMenuOpen(false)} query={query} onQuery={setQuery} />
               </>
             ) : (

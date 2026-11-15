@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { asset } from "../asset";
 import { Icon } from "../Icon";
+import { setVoiceEnabled, speakNow, useVoiceEnabled } from "@/lib/voice";
 import np from "../Player.module.css";
 import s from "./MenuPanel.module.css";
 
@@ -30,8 +31,10 @@ function Seg({ a: l, b, label, initialFirst = true, onPick }: { a: string; b: st
   );
 }
 
-function Toggle({ label, on: initial }: { label: string; on: boolean }) {
-  const [on, setOn] = useState(initial);
+function Toggle({ label, on: initial, value, onChange }: { label: string; on: boolean; value?: boolean; onChange?: (on: boolean) => void }) {
+  const [own, setOwn] = useState(initial);
+  const on = value ?? own; // controlled when `value` is given
+  const setOn = (v: boolean) => (onChange ? onChange(v) : setOwn(v));
   return (
     <div className={s.row}>
       <span className={s.rowLabel}>{label}</span>
@@ -42,6 +45,22 @@ function Toggle({ label, on: initial }: { label: string; on: boolean }) {
         </button>
       </span>
     </div>
+  );
+}
+
+/* Spoken descriptions. Saying "Voice off" confirms the change for people who can't see the switch. */
+function VoiceToggle() {
+  const voice = useVoiceEnabled();
+  return (
+    <Toggle
+      label="Word descriptions (voice)"
+      on
+      value={voice}
+      onChange={(on) => {
+        setVoiceEnabled(on);
+        speakNow(on ? "Voice descriptions on." : "Voice descriptions off.");
+      }}
+    />
   );
 }
 
@@ -57,7 +76,7 @@ function DataItem({ name, initial, bold }: { name: string; initial: boolean; bol
   );
 }
 
-export function MenuPanel({ onClose, onMode }: { onClose?: () => void; onMode?: (mode: "globe" | "play") => void }) {
+export function MenuPanel({ onClose, onMode, onHelp }: { onClose?: () => void; onMode?: (mode: "globe" | "play") => void; onHelp?: () => void }) {
   const [genre, setGenre] = useState(GENRES[0]);
   return (
     <section className={s.panel} aria-label="Settings">
@@ -93,7 +112,7 @@ export function MenuPanel({ onClose, onMode }: { onClose?: () => void; onMode?: 
           <Seg a="Over Time" b="Over Area" label="Sonification mode" />
         </div>
         <p className={s.label}>Accessibility</p>
-        <div className={s.tight}><Toggle label="Word descriptions (voice)" on /></div>
+        <div className={s.tight}><VoiceToggle /></div>
         <Toggle label="Captions" on />
         <Toggle label="Mono audio" on={false} />
       </div>
@@ -105,12 +124,12 @@ export function MenuPanel({ onClose, onMode }: { onClose?: () => void; onMode?: 
         </button>
       </div>
       <div className={s.footer}>
-        <button className={s.foot}>
+        <button className={s.foot} onClick={onHelp}>
           <img alt="" width={16} height={16} src={a("help")} />
           <span className={s.footText}>Help</span>
           <kbd className={s.key}>H</kbd>
         </button>
-        <button className={s.foot}>
+        <button className={s.foot} onClick={onHelp}>
           <img alt="" width={16} height={16} src={a("kbd")} />
           <span className={s.footText}>Keyboard map</span>
           <kbd className={s.key}>K</kbd>

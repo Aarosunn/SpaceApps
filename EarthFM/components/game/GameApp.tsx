@@ -6,6 +6,8 @@ import { Stage } from "@/components/Stage";
 import { Icon } from "@/components/Icon";
 import { asset } from "@/components/asset";
 import { WordCaption } from "@/components/app/WordCaption";
+import { setVoiceEnabled, speakLong, speakNow, useSpokenCaption, useVoiceEnabled } from "@/lib/voice";
+import { GAME_HELP } from "@/lib/guide";
 import { ROUNDS, type Round } from "@/lib/game/rounds";
 import { audio, contourFor, earcon, playContour, stopAll, type Contour } from "@/lib/game/audio";
 import { ContourView } from "./ContourView";
@@ -168,11 +170,21 @@ export function GameApp() {
     setCaption(round.topic);
   };
 
+  // Read each caption aloud when voice descriptions are on (V toggles).
+  const voiceOn = useVoiceEnabled();
+  useSpokenCaption(caption);
+
   // Keyboard: 1-4 answer, Space replays the mystery, Enter continues.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement).tagName === "INPUT") return;
-      if (phase === "choose" && /^[1-4]$/.test(e.key)) choose(Number(e.key) - 1);
+      if (e.metaKey || e.ctrlKey) return;
+      if (e.key.toLowerCase() === "h" || e.key === "?") {
+        if (voiceOn) speakLong(GAME_HELP);
+      } else if (e.key.toLowerCase() === "v") {
+        setVoiceEnabled(!voiceOn);
+        speakNow(voiceOn ? "Voice descriptions off." : "Voice descriptions on.");
+      } else if (phase === "choose" && /^[1-4]$/.test(e.key)) choose(Number(e.key) - 1);
       else if (phase === "choose" && e.key === " ") { e.preventDefault(); replay("mystery"); }
       else if (e.key === "Enter" && (e.target as HTMLElement).tagName !== "BUTTON") {
         if (phase === "start" || phase === "card") startOrCard();
