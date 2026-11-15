@@ -28,7 +28,7 @@ const TRACK_SECONDS = Math.round(TIMELINE_SECONDS); // one pass of the SVS 3912 
 const MAX_STOPS = 7;
 const FLIGHT_MS = 2600; // plane flight between songs
 const LANDING_GAP_MS = 700; // quiet beat after landing, before the next song starts
-const IDLE_CAPTION = "Click a place to listen, + to add it, drag a stop to move it.";
+const IDLE_CAPTION = "Click the map to add a place, click a place to play it, drag it to move it.";
 
 type Place = { name: string; x: number; y: number; surface: Surface };
 
@@ -82,7 +82,6 @@ export function EarthApp() {
 
   const [stops, setStops] = useState<Place[]>([]); // start empty
   const [current, setCurrent] = useState(-1); // -1: nothing from the mixtape played yet
-  const [preview, setPreview] = useState<Place | null>(null); // a clicked map area that is not in the mixtape
   const [playing, setPlaying] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [playToken, setPlayToken] = useState(0); // bumps whenever a song (re)starts from the top
@@ -98,8 +97,7 @@ export function EarthApp() {
   const [saved, setSaved] = useState(false);
   const [query, setQuery] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
-  const [pickMode, setPickMode] = useState(false); // "Add place" with nothing hovered: next map click adds
-  // "How this sound is made" panel: opens for a place when it is added with +, or with the ? key / button.
+  // "How this sound is made" panel: opens for a place when it is added, or with the ? key / button.
   const [how, setHow] = useState<Place | null>(null);
   const [howOpen, setHowOpen] = useState(false);
   const [recipe, setRecipe] = useState<{ key: string; data: SoundRecipe } | null>(null);
@@ -110,13 +108,12 @@ export function EarthApp() {
   useEffect(() => {
     flightRef.current = flight;
   });
-  const lastHover = useRef<Place | null>(null); // the area the info card last described
 
   // Debounced hover card (the pin cursor itself is a CSS cursor, see EarthApp.module.css)
   const [hover, setHover] = useState<Place | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const nowPlaying: Place | null = preview ?? (current >= 0 ? stops[current] ?? null : null);
+  const nowPlaying: Place | null = current >= 0 ? stops[current] ?? null : null;
 
   const describe = useCallback(
     (x: number, y: number): Place => {
@@ -161,7 +158,7 @@ export function EarthApp() {
       }
       setStops((list) => list.map((st, j) => (j === i ? place : st)));
       setNotice(`Moved stop ${i + 1} to ${place.name}.`);
-      if (i === current && !preview) setPlayToken((k) => k + 1); // it is playing: carry on from the new place
+      if (i === current) setPlayToken((k) => k + 1); // it is playing: carry on from the new place
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
@@ -173,7 +170,6 @@ export function EarthApp() {
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => {
       const place = describe(p.x, p.y);
-      lastHover.current = place;
       setHover(place);
     }, HOVER_DELAY_MS);
   };
@@ -184,14 +180,7 @@ export function EarthApp() {
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
 
   const playStop = useCallback((i: number) => {
-    setPreview(null);
     setCurrent(i);
-    setElapsed(0);
-    setPlayToken((k) => k + 1);
-    setPlaying(true);
-  }, []);
-  const playPreview = useCallback((place: Place) => {
-    setPreview(place);
     setElapsed(0);
     setPlayToken((k) => k + 1);
     setPlaying(true);
@@ -201,26 +190,26 @@ export function EarthApp() {
     (i: number) => {
       const to = stops[i];
       if (!to || flightRef.current) return;
-      const from = !preview && current >= 0 ? stops[current] : null;
+      const from = current >= 0 ? stops[current] : null;
       if (!from || i === current) return playStop(i);
       setPlaying(false);
       setNotice(null); // the flight caption takes over
       setFlight({ from, to, toIdx: i, t: 0 });
     },
-    [stops, preview, current, playStop],
+    [stops, current, playStop],
   );
   const next = useCallback(() => {
     if (!stops.length) return;
-    goTo(preview && current >= 0 ? current : (current + 1) % stops.length);
-  }, [goTo, current, stops.length, preview]);
+    goTo((current + 1) % stops.length);
+  }, [goTo, current, stops.length]);
   const prev = useCallback(() => {
     if (elapsed > 3 || !stops.length) {
       setElapsed(0);
       setPlayToken((k) => k + 1);
       return;
     }
-    goTo(preview && current >= 0 ? current : (current - 1 + stops.length) % stops.length);
-  }, [elapsed, goTo, current, stops.length, preview]);
+    goTo((current - 1 + stops.length) % stops.length);
+  }, [elapsed, goTo, current, stops.length]);
   const togglePlay = useCallback(() => {
     if (nowPlaying && !flight) setPlaying((p) => !p);
   }, [nowPlaying, flight]);
@@ -294,22 +283,13 @@ export function EarthApp() {
   const onMapClick = (e: React.MouseEvent) => {
     const p = toStage(e);
     const place = describe(p.x, p.y);
-    if (pickMode) {
-      setPickMode(false);
-      return addPlace(place);
-    }
     const i = stops.findIndex((st) => st.name === place.name);
     if (i >= 0) goTo(i);
-    else playPreview(place);
+    else addPlace(place);
   };
 
   const addPlace = useCallback(
-    (place: Place | null) => {
-      if (!place) {
-        setPickMode(true);
-        setNotice("Click a place on the map to add it.");
-        return;
-      }
+    (place: Place) => {
       if (stops.length >= MAX_STOPS) {
         setNotice(`The mixtape is full (${MAX_STOPS} places max).`);
         return;
@@ -322,13 +302,9 @@ export function EarthApp() {
       setNotice(`Added ${place.name} to the mixtape.`);
       setHow(place); // show how this place's sound is generated
       setHowOpen(true);
-      if (preview?.name === place.name) {
-        // The place being previewed is now a stop: keep it playing as that stop instead of going silent.
-        setPreview(null);
-        setCurrent(stops.length);
-      }
+      if (current < 0) playStop(stops.length); // nothing is playing: start the new place (otherwise click its dot to hear it)
     },
-    [stops, preview],
+    [stops, current, playStop],
   );
 
   // The song (data + notes) for the place shown on the panel and in the caption: the one playing now, else the one
@@ -361,7 +337,7 @@ export function EarthApp() {
   const toggleHow = useCallback(() => {
     if (howOpen) return setHowOpen(false);
     const target = nowPlaying ?? how ?? stops[stops.length - 1] ?? null;
-    if (!target) return setNotice("Click a place or press + to add one first.");
+    if (!target) return setNotice("Click the map to add a place.");
     setHow(target);
     setHowOpen(true);
   }, [howOpen, nowPlaying, how, stops]);
@@ -371,8 +347,8 @@ export function EarthApp() {
   useEffect(() => {
     tick.current = () => {
       if (elapsed + 1 < TRACK_SECONDS) return setElapsed(elapsed + 1);
-      if (!preview && stops.length > 1) return next(); // fly on to the next stop (plane + quiet gap)
-      setPlaying(false); // a lone place or a preview just ends
+      if (stops.length > 1) return next(); // fly on to the next stop (plane + quiet gap)
+      setPlaying(false); // a lone place just ends
       setElapsed(0);
     };
   });
@@ -423,8 +399,8 @@ export function EarthApp() {
     const place = { name: hit.name, x, y, surface };
     const i = stops.findIndex((st) => st.name === place.name);
     if (i >= 0) playStop(i);
-    else playPreview(place);
-  }, [query, stops, playStop, playPreview]);
+    else addPlace(place);
+  }, [query, stops, playStop, addPlace]);
 
   // Keyboard map (matches the key hints in the Figma labels).
   useEffect(() => {
@@ -443,9 +419,7 @@ export function EarthApp() {
       else if (k === "escape") {
         setMenuOpen(false);
         setShareOpen(false);
-        setPickMode(false);
       }
-      else if (k === "+" || k === "=") addPlace(hover ?? lastHover.current ?? preview);
       else if (k === "?") toggleHow();
       else if (k === " " && t.tagName !== "BUTTON") {
         e.preventDefault();
@@ -454,10 +428,10 @@ export function EarthApp() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [next, addPlace, hover, preview, search, togglePlay, toggleHow]);
+  }, [next, search, togglePlay, toggleHow]);
 
   // ---- derived view data
-  const activeIdx = preview ? -1 : current;
+  const activeIdx = current;
   // Plane is only shown while flying between songs. Ease in/out; nose follows the arc (SVG nose points NE = -45deg).
   const ease = (t: number) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
   const plane = flight && pointOnLeg(flight.from, flight.to, ease(flight.t));
@@ -484,7 +458,7 @@ export function EarthApp() {
   const meta = `Mixtape · ${stops.length} stops · ${mmss(stops.length * 164)}`; // Figma: 3 stops = 8:12 (2:44 per stop incl. travel)
   const caption =
     notice ??
-    (flight ? `Flying to ${flight.to.name}…` : pickMode ? "Click a place on the map to add it." : nowPlaying ? (song ? song.caption : `Loading ${layerLabel.toLowerCase()}…`) : IDLE_CAPTION);
+    (flight ? `Flying to ${flight.to.name}…` : nowPlaying ? (song ? song.caption : `Loading ${layerLabel.toLowerCase()}…`) : IDLE_CAPTION);
   // "Place · layer · first date – last date" (the dates the song runs through)
   const span = song ? ` · ${song.dates[0]} – ${song.dates[1]}` : "";
   const nowText = flight ? `Up next: ${flight.to.name} · ${layerLabel}` : nowPlaying ? `${nowPlaying.name} · ${layerLabel}${span}` : "Now listening: nothing yet";
@@ -505,7 +479,7 @@ export function EarthApp() {
           <Stage>
             <MapLayer>
               {/* Map hit area: pin cursor + debounced area info. Dots and panels sit above it. */}
-              <div className={s.hit} onPointerMove={onMapMove} onPointerLeave={onMapLeave} onClick={onMapClick} aria-label="Map: click a place to play it, + to add it" />
+              <div className={s.hit} onPointerMove={onMapMove} onPointerLeave={onMapLeave} onClick={onMapClick} aria-label="Map: click to add a place to the mixtape" />
               <svg className={s.routes} width={W} height={H} aria-hidden="true">
                 <defs>
                   <filter id="route-shadow" x="-5%" y="-5%" width="110%" height="110%">
@@ -530,7 +504,7 @@ export function EarthApp() {
                   onDragStart={(e) => startDrag(i, e)}
                 />
               ))}
-              {hover && card && <HoverCard left={card.left} top={card.top} title={`${hover.name} · ${layerLabel}`} hint="Click to play · + to add to mixtape" />}
+              {hover && card && <HoverCard left={card.left} top={card.top} title={`${hover.name} · ${layerLabel}`} hint="Click to add to mixtape" />}
             </MapLayer>
 
             {controlsHidden ? <HalfScrim /> : <Scrim />}
@@ -569,12 +543,12 @@ export function EarthApp() {
                 title="My mixtape"
                 meta={meta}
                 stops={mixStops}
-                emptyText="No places yet. Hover the map, then click to listen or press + to add."
+                emptyText="No places yet. Click the map to add one."
                 addDisabled={stops.length >= MAX_STOPS}
                 onHide={() => setPlaylistHidden(true)}
                 onSelect={(n) => goTo(n - 1)}
                 onRemove={(n) => removeStop(n - 1)}
-                onAdd={() => addPlace(hover ?? lastHover.current ?? preview)}
+                onAdd={() => setNotice("Click the map to add a place.")}
                 onShare={toggleShare}
                 shareOpen={shareOpen}
               >
