@@ -1,0 +1,7 @@
+node_modules/
+capture/tmp/
+out/*.png
+out/render.log
+public/clips/globe.wav
+public/clips/game.wav
+public/clips/keys.wav
