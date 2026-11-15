@@ -88,6 +88,7 @@ export function EarthApp() {
   const [playToken, setPlayToken] = useState(0); // bumps whenever a song (re)starts from the top
   const [volume, setVolume] = useState(0.75);
   const [layer, setLayer] = useState<LayerId>("sst"); // which NASA data layer every place plays
+  const [captionsOn, setCaptionsOn] = useState(true); // settings: show the caption at the bottom left
   const [sonMode, setSonMode] = useState<SonMode>("area"); // "area": sweep the picture; "time": follow its average through the dates
   const [menuOpen, setMenuOpen] = useState(false);
   const [controlsHidden, setControlsHidden] = useState(false);
@@ -533,7 +534,7 @@ export function EarthApp() {
             </MapLayer>
 
             {controlsHidden ? <HalfScrim /> : <Scrim />}
-            <WordCaption text={caption} />
+            {captionsOn && <WordCaption text={caption} />}
             {!controlsHidden && (
               <>
                 <NowListening text={nowText} onHide={() => setControlsHidden(true)} />
@@ -590,7 +591,7 @@ export function EarthApp() {
 
             {menuOpen ? (
               <>
-                <MenuPanel onClose={() => setMenuOpen(false)} onMode={(m) => m === "play" && router.push("/play")} layer={layer} onLayer={setLayer} sonMode={sonMode} onSonMode={setSonMode} />
+                <MenuPanel onClose={() => setMenuOpen(false)} onMode={(m) => m === "play" && router.push("/play")} layer={layer} onLayer={setLayer} sonMode={sonMode} onSonMode={setSonMode} captions={captionsOn} onCaptions={setCaptionsOn} />
                 <TopLeftOpen onMenu={() => setMenuOpen(false)} query={query} onQuery={setQuery} />
               </>
             ) : (

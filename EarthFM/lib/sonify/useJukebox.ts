@@ -134,11 +134,12 @@ export function recipeFor(tl: Timeline, p: Place, layer: Layer, mode: SonMode): 
 export function useJukebox() {
   const st = useRef<{
     Tone?: typeof import("tone");
-    engine?: { setMaster: (g: number, t: number) => void; start: (t: number) => void };
+    engine?: { setMaster: (g: number, t: number) => void; setPad: (p: { gain: number }, t: number, tau?: number) => void; start: (t: number) => void };
     player?: { setSource: (clock: unknown, tl: Timeline, map: unknown) => void; start: () => void; stop: () => void };
     clock?: { currentTime: number; play: () => void; pause: () => void };
     timelines: Partial<Record<LayerId, Promise<Timeline>>>;
     song?: SoundRecipe; // the song now playing
+    left?: boolean; // the globe was closed: nothing may start sounding after this
     volume: number;
   }>({ volume: 0.75, timelines: {} });
 
@@ -161,7 +162,7 @@ export function useJukebox() {
     s.Tone = Tone;
     s.engine = Engine.createEngine(Tone, core, MAPS.area);
     s.engine!.start(Tone.now());
-    s.engine!.setMaster(s.volume * 0.65, Tone.now());
+    s.engine!.setMaster(s.left ? 0 : s.volume * 0.65, Tone.now()); // silent if the page was left while this was loading
     /* The engine is used as it is. Two of the functions it calls are wrapped so the song is honest:
        a cell with no data is a rest (not the lowest note), in area mode each note sits left/right where its cell is,
        and the background tone follows the mean of the whole window instead of jumping cell to cell. */
@@ -191,6 +192,7 @@ export function useJukebox() {
 
   const play = useCallback(async (place: Place, layer: LayerId, mode: SonMode, fromSeconds = 0) => {
     const [s, song] = await Promise.all([ensure(), recipe(place, layer, mode)]);
+    if (s.left) return;
     s.clock?.pause();
     const clock = core.makeClipClock(TIMELINE_SECONDS, () => performance.now() / 1000);
     clock.currentTime = fromSeconds;
@@ -214,6 +216,20 @@ export function useJukebox() {
   /* Position of the clip clock in seconds (0 before anything has played). */
   const time = useCallback(() => st.current.clock?.currentTime ?? 0, []);
 
-  useEffect(() => () => { st.current.clock?.pause(); st.current.player?.stop(); }, []);
+  /* Leaving the globe (for the game, or any other page): stop the song AND silence the engine. Pausing the clock alone
+     left the background tone droning, because the player is what normally fades it out. */
+  useEffect(() => {
+    const s = st.current; // the same object for the life of the component
+    s.left = false; // React's development mode mounts, unmounts and mounts again: re-arm on every mount
+    return () => {
+      s.clock?.pause();
+      s.player?.stop();
+      if (s.engine && s.Tone) {
+        s.engine.setPad({ gain: 0 }, s.Tone.now(), 0.05);
+        s.engine.setMaster(0, s.Tone.now());
+      }
+      s.left = true;
+    };
+  }, []);
   return { ensure, play, pause, resume, setVolume, recipe, time };
 }

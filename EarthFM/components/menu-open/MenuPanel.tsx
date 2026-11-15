@@ -23,14 +23,20 @@ function Seg({ a: l, b, label, initialFirst = true, onPick }: { a: string; b: st
   );
 }
 
-function Toggle({ label, on: initial }: { label: string; on: boolean }) {
-  const [on, setOn] = useState(initial);
+/* A switch. With `value` and `onChange` it is controlled by the parent (it does something); without them it only remembers itself. */
+function Toggle({ label, on: initial, value, onChange }: { label: string; on: boolean; value?: boolean; onChange?: (on: boolean) => void }) {
+  const [own, setOwn] = useState(initial);
+  const on = value ?? own;
+  const flip = () => {
+    setOwn(!on);
+    onChange?.(!on);
+  };
   return (
     <div className={s.row}>
       <span className={s.rowLabel}>{label}</span>
       <span className={s.rowRight}>
         <span className={`${s.onoff} ${on ? "" : s.off}`}>{on ? "On" : "Off"}</span>
-        <button role="switch" aria-checked={on} aria-label={label} className={s.switch} onClick={() => setOn(!on)}>
+        <button role="switch" aria-checked={on} aria-label={label} className={s.switch} onClick={flip}>
           <img alt="" src={a(on ? "switch-on" : "switch-off")} />
         </button>
       </span>
@@ -56,9 +62,11 @@ type MenuProps = {
   onLayer?: (layer: LayerId) => void;
   sonMode?: SonMode;
   onSonMode?: (mode: SonMode) => void;
+  captions?: boolean;
+  onCaptions?: (on: boolean) => void;
 };
 
-export function MenuPanel({ onClose, onMode, layer = "sst", onLayer, sonMode = "area", onSonMode }: MenuProps) {
+export function MenuPanel({ onClose, onMode, layer = "sst", onLayer, sonMode = "area", onSonMode, captions, onCaptions }: MenuProps) {
   return (
     <section className={s.panel} aria-label="Settings">
       <div className={s.header}>
@@ -86,7 +94,7 @@ export function MenuPanel({ onClose, onMode, layer = "sst", onLayer, sonMode = "
         </div>
         <p className={s.label}>Accessibility</p>
         <div className={s.tight}><Toggle label="Word descriptions (voice)" on /></div>
-        <Toggle label="Captions" on />
+        <Toggle label="Captions" on value={captions} onChange={onCaptions} />
         <Toggle label="Mono audio" on={false} />
       </div>
       <div className={`${s.group} ${s.mixGroup}`}>
