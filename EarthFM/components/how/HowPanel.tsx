@@ -148,11 +148,11 @@ export function HowPanel({ placeName, recipe, live, getTime, onClose }: Props) {
               <button className={s.round} onClick={() => setHelp(false)} aria-label="Close" autoFocus>×</button>
             </div>
             <ol className={s.steps}>
-              <li><b>NASA picture.</b> {r.layer.picture} {r.frames.length} dates are used, from {r.dates[0]} to {r.dates[1]}.</li>
+              <li><b>NASA picture.</b> {r.layer.picture} {area ? `There are ${r.frames.length} dates, from ${r.dates[0]} to ${r.dates[1]}; this song plays one of them.` : `${r.frames.length} dates are used, from ${r.dates[0]} to ${r.dates[1]}.`}</li>
               <li><b>Picture → number.</b> {r.layer.reading}</li>
               <li><b>Grid.</b> The whole map is cut into 10-degree squares ({r.grid[0]} × {r.grid[1]}) and each square is averaged. The panel shows the {VIEW_COLS} × {VIEW_ROWS} squares around your place.</li>
               {area ? (
-                <li><b>By area: the sweep.</b> The melody reads one square every {r.stepSeconds} seconds: left to right along the top row, then the next row down, then back to the start. One pass takes {r.passSeconds} seconds. Notes on the left of the picture come from your left speaker, notes on the right from your right. While the sweep repeats, the picture moves through the dates in order.</li>
+                <li><b>By area: the sweep.</b> The melody reads one square every {r.stepSeconds} seconds: left to right along the top row, then the next row down, then back to the start. One pass takes {r.passSeconds} seconds. Notes on the left of the picture come from your left speaker, notes on the right from your right. The picture stays on one date, {r.allDates[r.date]}: choose another on the timeline at the bottom right of the map.</li>
               ) : (
                 <li><b>By time: the whole picture.</b> The melody follows the average of all the squares in the picture, and one song runs from the first date to the last. You hear how this region changes over time rather than how it varies from place to place.</li>
               )}

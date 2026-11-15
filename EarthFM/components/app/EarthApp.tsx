@@ -13,6 +13,7 @@ import { SharePopover } from "@/components/mixtape-shared/SharePopover";
 import { ShowControlsPill } from "@/components/controls-hidden/ShowControlsPill";
 import { HalfScrim } from "@/components/controls-hidden/Caption";
 import { WordCaption } from "./WordCaption";
+import { DatePicker } from "./DatePicker";
 import { speak, stopSpeaking } from "@/lib/speech";
 import { getPref, setPref } from "@/lib/prefs";
 import { ShowPlaylistTab } from "@/components/playlist-hidden/ShowPlaylistTab";
@@ -104,6 +105,7 @@ export function EarthApp() {
   const [voiceOn, setVoiceOn] = useState(true); // settings: read the caption aloud (text to speech)
   const [speaking, setSpeaking] = useState(false); // the voice is talking: the music is turned down meanwhile
   const [mono, setMono] = useState(false); // settings: play both ears the same (for one-sided hearing)
+  const [dateIdx, setDateIdx] = useState<number | null>(null); // by area: which date's picture is played (null = the latest)
   const [sonMode, setSonMode] = useState<SonMode>("area"); // "area": sweep the picture; "time": follow its average through the dates
   const [menuOpen, setMenuOpen] = useState(false);
   const [controlsHidden, setControlsHidden] = useState(false);
@@ -300,7 +302,7 @@ export function EarthApp() {
 
   // Drive the sonification engine from the player state. A new playToken restarts the song from the top;
   // otherwise play/pause just resumes or pauses the same clip clock. Flights are silent (the quiet gap between songs).
-  const audioKey = nowPlaying && !flight ? `${nowPlaying.name}#${playToken}#${layer}#${sonMode}` : null;
+  const audioKey = nowPlaying && !flight ? `${nowPlaying.name}#${playToken}#${layer}#${sonMode}#${dateIdx}` : null;
   const audioState = useRef({ key: null as string | null, place: nowPlaying, elapsed });
   useEffect(() => {
     audioState.current.place = nowPlaying;
@@ -316,10 +318,14 @@ export function EarthApp() {
       jb.resume();
       return;
     }
+    // Only the date changed (the key's last part): carry on from the exact position of the running clock, so the sweep
+    // does not jump back. `elapsed` is the display's whole-second counter, good enough for starting a new song.
+    const songOf = (key: string) => key.slice(0, key.lastIndexOf("#"));
+    const from = a.key !== null && songOf(a.key) === songOf(audioKey) ? jb.time() : a.elapsed;
     a.key = audioKey;
     const { lat, lon } = xyToLatLon(a.place.x, a.place.y);
-    void jb.play({ lat, lon }, layer, sonMode, a.elapsed);
-  }, [audioKey, playing, jb, layer, sonMode]);
+    void jb.play({ lat, lon }, layer, sonMode, from, dateIdx);
+  }, [audioKey, playing, jb, layer, sonMode, dateIdx]);
   const { setVolume: setEngineVolume, setMono: setEngineMono } = jb; // stable; `jb` itself is a new object every render
   useEffect(() => {
     setEngineVolume(listening ? volume * 0.12 : speaking ? volume * 0.3 : volume); // duck the music under the voice, and more so for the microphone
@@ -374,20 +380,27 @@ export function EarthApp() {
   // The song (data + notes) for the place shown on the panel and in the caption: the one playing now, else the one
   // last added. It is built by the same function the player uses, for the current layer and mode.
   const shown: Place | null = nowPlaying ?? how;
-  const songKey = shown ? `${shown.name}|${Math.round(shown.x)},${Math.round(shown.y)}|${layer}|${sonMode}` : null;
+  const songKey = shown ? `${shown.name}|${Math.round(shown.x)},${Math.round(shown.y)}|${layer}|${sonMode}|${dateIdx}` : null;
   const loadRecipe = jb.recipe; // stable; `jb` itself is a new object every render
   useEffect(() => {
     if (!shown || !songKey) return;
     let stale = false;
     const { lat, lon } = xyToLatLon(shown.x, shown.y);
-    loadRecipe({ lat, lon }, layer, sonMode)
+    loadRecipe({ lat, lon }, layer, sonMode, dateIdx)
       .then((data) => !stale && setRecipe({ key: songKey, data }))
       .catch((e: Error) => !stale && setNotice(e.message));
     return () => {
       stale = true;
     };
-  }, [songKey]); // eslint-disable-line react-hooks/exhaustive-deps -- songKey covers shown, layer and sonMode
-  const song = recipe && recipe.key === songKey ? recipe.data : null;
+  }, [songKey]); // eslint-disable-line react-hooks/exhaustive-deps -- songKey covers shown, layer, sonMode and dateIdx
+  // While a newly picked date loads, keep the previous date's song for the same place, layer and mode on screen,
+  // so the caption, the panel and the timeline do not flash "Loading" on every step along the timeline.
+  const sameButDate = (a: string, b: string) => a.slice(0, a.lastIndexOf("|")) === b.slice(0, b.lastIndexOf("|"));
+  const song = recipe && songKey && (recipe.key === songKey || sameButDate(recipe.key, songKey)) ? recipe.data : null;
+  // The timeline's dates and bars. While a newly picked date loads, the previous song for this layer still supplies
+  // them, so the timeline (and the keyboard focus on it) does not blink away between two dates.
+  const shownInMixtape = !!shown && stops.some((st) => st.name === shown.name); // not a place that was removed
+  const timelineOf = sonMode === "area" && shownInMixtape && recipe && recipe.data.date >= 0 && recipe.data.layer.id === layer ? recipe.data : null;
   // Jump to a point in the song (click on the progress bar): restart the clip clock from there.
   const seek = useCallback(
     (fraction: number) => {
@@ -637,7 +650,7 @@ export function EarthApp() {
   // Text to speech: read each new message aloud once. A notice ("Added X") is read when it appears; the line under it
   // (the song, the flight or the opening hint) is read when it changes, and is not repeated after every notice.
   // A song line starts with the place and the data, which sighted users read in the bar above the player.
-  const songLine = !flight && nowPlaying && song ? `${nowPlaying.name}, ${layerLabel}${FLAGS.instruments ? `, played as ${VOICE_WORDS[LAYER_VOICE[layer]]}` : ""}. ${song.caption}` : null;
+  const songLine = !flight && nowPlaying && song ? `${nowPlaying.name}, ${layerLabel}${song.date >= 0 ? `, ${song.allDates[song.date]}` : ""}. ${song.caption}` : null;
   const baseLine = songLine ?? (flight ? `Flying to ${flight.to.name}` : nowPlaying ? null : IDLE_CAPTION); // null while loading
   const said = useRef<{ notice: string | null; base: string | null }>({ notice: null, base: null });
   useEffect(() => {
@@ -661,7 +674,8 @@ export function EarthApp() {
   }, [notice, baseLine, voiceOn, listening]);
   useEffect(() => () => { stopSpeaking(); said.current = { notice: null, base: null }; }, []); // leaving the page (e.g. to the game) stops the voice
   // "Place · layer · first date – last date" (the dates the song runs through)
-  const span = song ? ` · ${song.dates[0]} – ${song.dates[1]}` : "";
+  // by area: the one date being played; by time: the dates the song runs through
+  const span = !song ? "" : song.date >= 0 ? ` · ${song.allDates[song.date]}` : ` · ${song.dates[0]} – ${song.dates[1]}`;
   const nowText = flight ? `Up next: ${flight.to.name} · ${layerLabel}` : nowPlaying ? `${nowPlaying.name} · ${layerLabel}${span}` : "Now listening: nothing yet";
   // The vehicle rides the current leg (current stop -> next) as the track plays; boat if the next stop is at sea.
   const legOpacity = (i: number) =>
@@ -739,6 +753,10 @@ export function EarthApp() {
             {controlsHidden ? <HalfScrim /> : <Scrim />}
             {/* Captions off still leaves the text for screen readers, unless the voice is already reading it. */}
             {captionsOn ? <WordCaption text={caption} spoken={voiceOn} /> : !voiceOn && <span className="sr-only" aria-live="polite">{caption}</span>}
+            {/* The timeline: only by area, where the song is one date's picture. By time already plays every date. */}
+            {!controlsHidden && timelineOf && (
+              <DatePicker layer={layerLabel} dates={timelineOf.allDates} levels={timelineOf.levels} index={Math.min(timelineOf.allDates.length - 1, dateIdx ?? timelineOf.date)} onPick={setDateIdx} />
+            )}
             {!controlsHidden && (
               <>
                 <NowListening text={nowText} onHide={() => { focusAfter('[aria-label^="Show controls"]'); setControlsHidden(true); }} />
@@ -801,7 +819,7 @@ export function EarthApp() {
             {FLAGS.voiceControl && <MicButton listening={listening} onClick={toggleListening} left={341} top={24} />}
             {menuOpen ? (
               <>
-                <MenuPanel onClose={() => setMenuOpen(false)} onMode={(m) => m === "play" && router.push("/play")} layer={layer} onLayer={setLayer} sonMode={sonMode} onSonMode={setSonMode} captions={captionsOn} onCaptions={setCaptionsOn} voice={voiceOn} onVoice={(on) => { setVoiceOn(on); setPref("earthfm-voice", on ? "1" : "0"); }} mono={mono} onMono={(on) => { setMono(on); setPref("earthfm-mono", on ? "1" : "0"); }} />
+                <MenuPanel onClose={() => setMenuOpen(false)} onMode={(m) => m === "play" && router.push("/play")} layer={layer} onLayer={(l) => { setLayer(l); setDateIdx(null); /* each layer has its own dates */ }} sonMode={sonMode} onSonMode={setSonMode} captions={captionsOn} onCaptions={setCaptionsOn} voice={voiceOn} onVoice={(on) => { setVoiceOn(on); setPref("earthfm-voice", on ? "1" : "0"); }} mono={mono} onMono={(on) => { setMono(on); setPref("earthfm-mono", on ? "1" : "0"); }} />
                 <TopLeftOpen onMenu={() => setMenuOpen(false)} query={query} onQuery={setQuery} />
               </>
             ) : (

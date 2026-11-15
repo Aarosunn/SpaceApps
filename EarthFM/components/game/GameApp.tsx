@@ -169,7 +169,7 @@ export function GameApp() {
       tell(ROUNDS[ri + 1].topic, cardSpeech(ROUNDS[ri + 1]));
     } else {
       setPhase("end");
-      tell("That's the set. See how your ear did.");
+      tell("That's the set. See how your ear did.", `That's the set. You got ${results.filter((r) => r.correct).length} of ${ROUNDS.length} right.`);
     }
   };
 
