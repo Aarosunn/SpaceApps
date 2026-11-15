@@ -16,7 +16,8 @@ export type Round = {
   unit: string;
   timbre: Timbre;
   /* How a value becomes sound: "change" = glide whose size is the % change; "level" = steady tone whose pitch is the value. */
-  mapping: { kind: "change" } | { kind: "level"; semisPerUnit: number };
+  /* "steps" = a staircase you can count: start on the base note, then one note up (with a wave) for every `unitsPerStep` of the value. */
+  mapping: { kind: "change" } | { kind: "level"; semisPerUnit: number } | { kind: "steps"; unitsPerStep: number };
   learn: { text: string; demo: { label: string; value: number }[] }; // show-not-tell example before the question
   reference: { label: string; value: number; display: string };
   options: Option[];
@@ -63,12 +64,12 @@ const CORE: Round[] = [
     question: "Which year is the mystery sea level?",
     unit: "cm above 1993 global mean sea level",
     timbre: "water",
-    mapping: { kind: "level", semisPerUnit: 1.6 },
+    mapping: { kind: "steps", unitsPerStep: 3 },
     learn: {
-      text: "Higher water, higher tone. Listen to the sea step up.",
+      text: "The sea starts at its 1993 level. Each wave lifts it one step, about 3 centimetres. Count the steps.",
       demo: [
-        { label: "Low · 0 cm", value: 0 },
-        { label: "High · +11 cm", value: 11.3 },
+        { label: "1993 · no rise", value: 0 },
+        { label: "2023 · 4 steps, +11 cm", value: 11.3 },
       ],
     },
     reference: { label: "1993", value: 0, display: "0 cm" },

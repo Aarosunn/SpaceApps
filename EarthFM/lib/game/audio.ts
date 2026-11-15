@@ -25,28 +25,40 @@ export const freq = (semis: number, base = BASE) => base * 2 ** (semis / 12);
 export const snap = (semis: number): number => core.quantizeToScale(BASE_MIDI + semis, BASE_MIDI, SCALE);
 
 /* A sound = a pitch contour over time: start and end semitones (equal for a steady tone). */
-/* lo / hi: the lowest and highest pitch (semitones) any value of this round reaches, so a note knows how high it sits in the round. */
-export type Contour = { from: number; to: number; dur: number; lo?: number; hi?: number };
+/* lo / hi: the lowest and highest pitch (semitones) any value of this round reaches, so a note knows how high it sits in the round.
+   steps / gap: a staircase contour plays steps + 1 notes, `gap` seconds apart (see "steps" in rounds.ts). */
+export type Contour = { from: number; to: number; dur: number; lo?: number; hi?: number; steps?: number; gap?: number };
 
-const endSemis = (round: Round, value: number) => (round.mapping.kind === "change" ? semisForChange(value) : value * round.mapping.semisPerUnit);
+const STAIRS = [0, 2, 4, 7, 9, 12, 14]; // semitones above the base note: the scale's own steps, so every stair is a clear note
+const STAIR_GAP = 0.6; // seconds between stairs: slow enough to count
+/* How many stairs a value climbs. Pure, checked in selfCheck. */
+export const stairsFor = (value: number, unitsPerStep: number) => Math.max(0, Math.min(STAIRS.length - 1, Math.round(value / unitsPerStep)));
+
+const endSemis = (round: Round, value: number) =>
+  round.mapping.kind === "change" ? semisForChange(value) : round.mapping.kind === "steps" ? STAIRS[stairsFor(value, round.mapping.unitsPerStep)] : value * round.mapping.semisPerUnit;
 
 export function contourFor(round: Round, value: number): Contour {
   // the round's own range: every option and every "how it sounds" example (a change round also starts from 0)
   const ends = [...round.options, ...round.learn.demo].map((o) => endSemis(round, o.value));
-  if (round.mapping.kind === "change") ends.push(0);
+  if (round.mapping.kind !== "level") ends.push(0);
   const lo = Math.min(...ends), hi = Math.max(...ends), s = endSemis(round, value);
+  if (round.mapping.kind === "steps") {
+    const steps = stairsFor(value, round.mapping.unitsPerStep);
+    return { from: 0, to: s, dur: (steps + 1) * STAIR_GAP + 0.5, lo, hi, steps, gap: STAIR_GAP };
+  }
   return round.mapping.kind === "change" ? { from: 0, to: s, dur: 1.75, lo, hi } : { from: s, to: s, dur: 1.5, lo, hi };
 }
 
 /* Where note i of a contour sits in the round's range, 0..1: drives how full the band is. */
 export function levelAt(k: Contour, i: number, n: number): number {
   if (k.lo === undefined || k.hi === undefined || k.hi === k.lo) return 0.5;
-  const semis = k.from + ((k.to - k.from) * i) / Math.max(1, n - 1);
+  const semis = k.steps !== undefined ? STAIRS[i] : k.from + ((k.to - k.from) * i) / Math.max(1, n - 1);
   return Math.max(0, Math.min(1, (semis - k.lo) / (k.hi - k.lo)));
 }
 
 /* The notes a contour is played as: one per quarter second, walking evenly from `from` to `to`, each snapped to the scale. */
 export function notesFor(k: Contour): number[] {
+  if (k.steps !== undefined) return Array.from({ length: k.steps + 1 }, (_, i) => snap(STAIRS[i])); // base note, then one stair per step
   const n = Math.max(2, Math.round(k.dur / STEP) - 1); // leave the last step for the note to ring out
   return Array.from({ length: n }, (_, i) => snap(k.from + ((k.to - k.from) * i) / (n - 1)));
 }
@@ -89,7 +101,7 @@ export function stopAll() {
 /* Play one contour at time `when` (seconds from now). Returns its duration.
    The timbre no longer picks a different instrument (the globe has one voice); it only sets where the sound sits. */
 export function playContour(k: Contour, timbre: Timbre, when = 0) {
-  const notes = notesFor(k), map = core.DEFAULT_MAPPING;
+  const notes = notesFor(k), map = core.DEFAULT_MAPPING, gap = k.gap ?? STEP;
   const pan = timbre === "bell" ? 0 : timbre === "water" ? -0.25 : 0.25;
   void audio().then(({ Tone, engine }) => {
     engine.setVoice?.(TIMBRE_VOICE[timbre]);
@@ -103,9 +115,11 @@ export function playContour(k: Contour, timbre: Timbre, when = 0) {
           if (i === 0) engine.play({ kind: "ref", midi: snap(0) + 12 }, t); // reference blip marks the start, as on the globe
           // the instrument's own cue (crackle count, wave size, brightness) follows the value's place in the round
           const level = FLAGS.gameBand ? levelAt(k, i, notes.length) : u;
-          engine.play({ kind: "lead", midi, vel: i % 4 === 0 ? 0.9 : 0.6, pan, dur: STEP * 0.8, u: level }, t);
+          // a staircase: the base note is still water; every stair after it arrives on a wave
+          const stair = k.steps !== undefined;
+          engine.play({ kind: "lead", midi, vel: stair || i % 4 === 0 ? 0.9 : 0.6, pan, dur: gap * 0.8, u: level, ...(stair ? { wave: i > 0 } : {}) }, t);
           if (FLAGS.gameBand) engine.accompany?.(level, t, i, midi);
-        }, (when + i * STEP) * 1000),
+        }, (when + i * gap) * 1000),
       );
     });
     timers.push(setTimeout(() => engine.setPad({ gain: 0 }, Tone.now(), 0.15), (when + k.dur - 0.2) * 1000));
@@ -132,6 +146,8 @@ export function selfCheck() {
   console.assert(Math.abs(freq(12) - 2 * BASE) < 1e-9, "octave");
   console.assert(snap(0) === 60 && snap(12) === 72 && snap(1) === 60 && snap(6) !== 66, "snaps to the pentatonic scale");
   console.assert(levelAt({ from: 0, to: 10, dur: 1, lo: 0, hi: 10 }, 0, 5) === 0 && levelAt({ from: 0, to: 10, dur: 1, lo: 0, hi: 10 }, 4, 5) === 1, "level runs from the round's lowest to its highest");
+  console.assert([3.0, 6.5, 9.1, 11.3].map((v) => stairsFor(v, 3)).join() === "1,2,3,4" && stairsFor(0, 3) === 0, "sea level: one stair per 3 cm");
+  console.assert(notesFor({ from: 0, to: 4, dur: 2, steps: 2, gap: 0.6 }).length === 3, "a 2-stair contour plays 3 notes");
   const flat = notesFor({ from: 0, to: 0, dur: 1.75 });
   console.assert(flat.every((m) => m === flat[0]), "no change stays on one note");
 }

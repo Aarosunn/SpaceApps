@@ -31,7 +31,7 @@ export const cracklesFor = (u: number) => Math.round(Math.max(0, Math.min(1, u))
 /* The band that joins the lead as the level (0..1) rises: bass, then hi-hat, then kick, then sparkle. Pure, checked in selfCheck. */
 export const bandFor = (level: number) => ({ bass: level > 0.2, hat: level > 0.45, kick: level > 0.7, sparkle: level > 0.9 });
 
-type LeadEv = { kind: string; midi: number; vel?: number; pan?: number; dur?: number; u?: number };
+type LeadEv = { kind: string; midi: number; vel?: number; pan?: number; dur?: number; u?: number; wave?: boolean }; // wave: force / forbid a wave on this note (unset = about one a second)
 type PadTargets = { gain: number; cutoff?: number };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Tone and the UMD core are untyped here, as in useJukebox
@@ -201,7 +201,7 @@ export function createInstruments(Tone: any, core: any) {
         waterPan.pan.setValueAtTime(pan, t);
         waterLead.triggerAttackRelease(hz, dur * 1.4, t, vel);
         // a wave washes in about once a second; higher value = louder, brighter wave
-        if (t - lastWave > 1.0) {
+        if (ev.wave ?? t - lastWave > 1.0) {
           lastWave = t;
           waveFilter.frequency.cancelScheduledValues(t);
           waveFilter.frequency.setValueAtTime(280, t);
