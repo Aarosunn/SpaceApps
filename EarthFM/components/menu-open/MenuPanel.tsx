@@ -3,18 +3,11 @@
 import { useState } from "react";
 import { asset } from "../asset";
 import { Icon } from "../Icon";
+import { LAYERS, LAYER_ORDER, type LayerId, type SonMode } from "@/lib/sonify/layers";
 import np from "../Player.module.css";
 import s from "./MenuPanel.module.css";
 
 const a = (f: string) => asset(`/figma/menu-open/${f}.svg`);
-const DATA = [
-  ["Wildfires", true],
-  ["Global heat", true],
-  ["Arctic sea ice", false],
-  ["Sea level", false],
-  ["Greenhouse gases", false],
-] as const;
-const GENRES = ["Lo-fi", "EDM", "Classical", "Ambient", "Hip-hop", "Jazz"];
 
 function Seg({ a: l, b, label, initialFirst = true, onPick }: { a: string; b: string; label: string; initialFirst?: boolean; onPick?: (first: boolean) => void }) {
   const [first, setFirst0] = useState(initialFirst);
@@ -45,20 +38,27 @@ function Toggle({ label, on: initial }: { label: string; on: boolean }) {
   );
 }
 
-/* Settings menu panel, Figma 38:289. */
-function DataItem({ name, initial, bold }: { name: string; initial: boolean; bold: boolean }) {
-  const [on, setOn] = useState(initial);
+/* Settings menu panel, Figma 38:289. One data layer plays at a time, so the list behaves as radio buttons. */
+function DataItem({ name, on, onPick }: { name: string; on: boolean; onPick: () => void }) {
   return (
     <label className={s.item}>
-      <input type="checkbox" checked={on} onChange={(e) => setOn(e.target.checked)} className={s.cb} />
+      <input type="radio" name="data-layer" checked={on} onChange={onPick} className={s.cb} />
       {on ? <img alt="" width={18} height={18} src={a("check")} /> : <span className={s.box} />}
-      <span className={bold ? s.itemBold : s.itemText}>{name}</span>
+      <span className={on ? s.itemBold : s.itemText}>{name}</span>
     </label>
   );
 }
 
-export function MenuPanel({ onClose, onMode }: { onClose?: () => void; onMode?: (mode: "globe" | "play") => void }) {
-  const [genre, setGenre] = useState(GENRES[0]);
+type MenuProps = {
+  onClose?: () => void;
+  onMode?: (mode: "globe" | "play") => void;
+  layer?: LayerId;
+  onLayer?: (layer: LayerId) => void;
+  sonMode?: SonMode;
+  onSonMode?: (mode: SonMode) => void;
+};
+
+export function MenuPanel({ onClose, onMode, layer = "sst", onLayer, sonMode = "area", onSonMode }: MenuProps) {
   return (
     <section className={s.panel} aria-label="Settings">
       <div className={s.header}>
@@ -70,16 +70,8 @@ export function MenuPanel({ onClose, onMode }: { onClose?: () => void; onMode?: 
       <div className={s.group}>
         <p className={s.label}>Data you are hearing</p>
         <div className={s.list}>
-          {DATA.map(([n, on], i) => (
-            <DataItem key={n} name={n} initial={on} bold={i === 0} />
-          ))}
-        </div>
-      </div>
-      <div className={s.group}>
-        <p className={s.label}>Genre</p>
-        <div className={s.chips}>
-          {GENRES.map((g) => (
-            <button key={g} className={`${s.chip} ${g === genre ? s.chipOn : ""}`} aria-pressed={g === genre} onClick={() => setGenre(g)}>{g}</button>
+          {LAYER_ORDER.map((id) => (
+            <DataItem key={id} name={LAYERS[id].menu} on={id === layer} onPick={() => onLayer?.(id)} />
           ))}
         </div>
       </div>
@@ -90,7 +82,7 @@ export function MenuPanel({ onClose, onMode }: { onClose?: () => void; onMode?: 
       <div className={s.access}>
         <div className={s.group}>
           <p className={s.label}>Sonification Mode</p>
-          <Seg a="Over Time" b="Over Area" label="Sonification mode" />
+          <Seg a="By Time" b="By Area" label="Sonification mode" initialFirst={sonMode === "time"} onPick={(time) => onSonMode?.(time ? "time" : "area")} />
         </div>
         <p className={s.label}>Accessibility</p>
         <div className={s.tight}><Toggle label="Word descriptions (voice)" on /></div>

@@ -2,32 +2,40 @@
 
 /* Globe <-> teammates' sonification engine (spaceapps-2026/sonification/recipes-browser).
    Musical decisions live in sonify-core.js; jukebox-engine.js builds the Tone.js graph and follows a media clock.
-   Here we only: load the global SST timeline, turn it into a SWEEP for one place, and drive a clip clock from the player UI.
+   Here we only: load a layer's global timeline, turn it into a song for one place, and drive a clip clock from the player UI.
 
-   The sweep: around the place we take a window of 8 x 5 grid cells (80 x 50 degrees). The melody reads one cell per
-   step (0.25 s), left to right, top row to bottom row, then starts again: 40 steps = one pass every 10 s. Each cell's
-   temperature is the note. A land cell is a rest. Meanwhile the data moves through the dates of the year. */
+   Around the place we take a window of 8 x 5 grid cells (80 x 50 degrees). Two ways to turn it into a song:
+   - "area": the melody reads one cell per step (0.25 s), left to right, top row to bottom row, then starts again:
+     40 steps = one pass every 10 s. A cell with no data is a rest. Meanwhile the data moves through the dates.
+   - "time": the melody follows the average of the whole window, from the first date to the last. */
 import { useCallback, useEffect, useRef } from "react";
 import core from "./sonify-core.js";
 import Engine from "./jukebox-engine.js";
 import { asset } from "@/components/asset";
+import { LAYERS, type Layer, type LayerId, type SonMode } from "./layers";
 
-export const TIMELINE_SECONDS = 68.6; // one song = the global SST timeline, first date to last date
-export const VIEW_ROWS = 5, VIEW_COLS = 8; // the window of 10-degree cells swept around a place
+export const TIMELINE_SECONDS = 68.6; // one song = a layer's timeline, first date to last date
+export const VIEW_ROWS = 5, VIEW_COLS = 8; // the window of 10-degree cells around a place
 
 type Frame = { t: number; mean: number; motion: number; grid: number[]; events: unknown[]; date?: string };
 type Timeline = { meta: { grid: [number, number] } & Record<string, unknown>; frames: Frame[] };
-type Place = { lat: number; lon: number; surface: "water" | "ice" | "land" };
+type Place = { lat: number; lon: number };
 
-/* Fixed pitch range for every place: 0..1 = 0..32 C, so a cold sea always sounds lower than a warm one.
-   16 pulses in 16 steps = a note on every step, so no cell of the sweep is skipped. */
-const MAP = { ...core.DEFAULT_MAPPING, leadRange: [0, 1], minPulses: 16, maxPulses: 16 };
-const STEP: number = MAP.stepSeconds;
+/* Fixed pitch range for every place (0..1 = the layer's whole value range), so places can be compared by ear.
+   Area mode: 16 pulses in 16 steps = a note on every step, so no cell of the sweep is skipped.
+   Time mode: the engine's own rhythm (more notes when the picture changes faster). */
+const MAPS = {
+  area: { ...core.DEFAULT_MAPPING, leadRange: [0, 1], minPulses: 16, maxPulses: 16 },
+  time: { ...core.DEFAULT_MAPPING, leadRange: [0, 1] },
+};
+const STEP: number = core.DEFAULT_MAPPING.stepSeconds;
 const TOGGLES = { pad: true, lead: true, ref: true, drum: true };
-const HAS_DATA = 0.02; // grid values at or below this are land / no reading
+const HAS_DATA = 0.02; // grid values at or below this mean "no data"
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+/* "2007-03-25" -> "25 Mar 2007"; a bare year ("1881") stays as it is. */
+export const prettyDate = (iso?: string) => (!iso ? "" : iso.length < 10 ? iso : `${+iso.slice(8, 10)} ${MONTHS[+iso.slice(5, 7) - 1]} ${iso.slice(0, 4)}`);
 
-/* The timeline is GLOBAL (built by spaceapps-2026/sonification/recipes-python/build_global_sst_timeline.py from flat
-   NASA SVS 3912 frames): 10-degree cells, rows north -> south (90..-90), cols west -> east (-180..180), 0 = land. */
+/* Timelines are GLOBAL: 10-degree cells, rows north -> south (90..-90), cols west -> east (-180..180). */
 export function cellFor(tl: Timeline, p: Place) {
   const [rows, cols] = tl.meta.grid;
   const row = Math.min(rows - 1, Math.max(0, Math.floor(((90 - p.lat) / 180) * rows)));
@@ -37,55 +45,85 @@ export function cellFor(tl: Timeline, p: Place) {
 
 export type SweepStep = { row: number; col: number; value: number | null; note: string | null; frame: number };
 export type SoundRecipe = {
-  frames: Frame[]; // every date, all grid cells (0..1; 0 = land)
+  layer: Layer;
+  mode: SonMode;
+  frames: Frame[]; // every date, all grid cells (0..1; 0 = no data)
   grid: [number, number];
-  window: { r0: number; c0: number }; // top-left cell of the swept window
+  window: { r0: number; c0: number }; // top-left cell of the window
   home: { row: number; col: number }; // the cell the place sits in
-  valueRange: [number, number]; // what 0..1 means in data units (degrees C)
-  lo: number; hi: number; // the values that play the lowest and the highest note
+  lo: number; hi: number; // the values (0..1) that play the lowest and the highest note
   scale: string[]; // note names, low to high
   stepSeconds: number; passSeconds: number; barSeconds: number;
-  oceanCells: number; // how many of the window's cells have data (0 = nothing to play)
-  stepAt: (t: number) => SweepStep; // what the sweep reads at clip time t
-  timeline: Timeline; // what the player is given: one frame per step, mean = that step's cell
-  rests: Set<number>; // step numbers that fall on land
-  padLevel: number[]; // per step: the mean of the window's ocean cells (drives the background tone)
+  dataCells: number; // how many of the window's cells have data on the first date (0 = nothing to play)
+  dates: [string, string]; // first and last date, formatted
+  fmt: (v: number) => string; // 0..1 -> "23.4 °C"
+  stepAt: (t: number) => SweepStep; // what is being read at clip time t (row/col = -1 in time mode: the whole window)
+  captionAt: (t: number) => string; // one sentence on what the song is doing at clip time t
+  timeline: Timeline; // what the player is given: one frame per step, mean = that step's value
+  rests: Set<number>; // step numbers with nothing to play
+  padLevel: number[]; // per step: the mean of the window's cells with data (drives the background tone)
 };
 
-/* Build the sweep for one place. The player and the "how this sound is made" panel both use this. */
-export function recipeFor(tl: Timeline, p: Place): SoundRecipe {
+/* Build the song for one place. The player, the panel and the caption all read this one object. */
+export function recipeFor(tl: Timeline, p: Place, layer: Layer, mode: SonMode): SoundRecipe {
   const [rows, cols] = tl.meta.grid;
   const home = cellFor(tl, p);
   const r0 = Math.min(rows - VIEW_ROWS, Math.max(0, home.row - Math.floor(VIEW_ROWS / 2)));
   const c0 = Math.min(cols - VIEW_COLS, Math.max(0, home.col - Math.floor(VIEW_COLS / 2)));
-  const notes: number[] = core.leadNotes(MAP);
-  const [lo, hi] = MAP.leadRange;
+  const map = MAPS[mode];
+  const notes: number[] = core.leadNotes(map);
+  const [lo, hi] = map.leadRange;
+  const [vmin, vmax] = (tl.meta.value_range as [number, number]) ?? [0, 1];
+  const fmt = (v: number) => `${(vmin + v * (vmax - vmin)).toFixed(layer.decimals)}${layer.unit}`;
   const noteFor = (v: number) => core.midiToName(notes[core.valueToIndex(core.norm(v, lo, hi), notes.length)]);
   const n = Math.floor(TIMELINE_SECONDS / STEP) + 1, cells = VIEW_ROWS * VIEW_COLS;
   const steps: SweepStep[] = [], dense: Frame[] = [], rests = new Set<number>(), padLevel: number[] = [];
-  let oceanCells = 0;
+  const rowRange: ([number, number] | null)[] = []; // per step: lowest and highest value in the row being swept
+  let dataCells = 0;
   for (let k = 0; k < n; k++) {
     const t = k * STEP, s = core.sampleTimeline(tl, t), i = k % cells;
     const row = r0 + Math.floor(i / VIEW_COLS), col = c0 + (i % VIEW_COLS);
-    const v: number = s.grid[row * cols + col], has = v > HAS_DATA;
-    let sum = 0, count = 0;
+    let sum = 0, count = 0, rmin = Infinity, rmax = -Infinity;
     for (let rr = 0; rr < VIEW_ROWS; rr++)
       for (let cc = 0; cc < VIEW_COLS; cc++) {
-        const w = s.grid[(r0 + rr) * cols + c0 + cc];
-        if (w > HAS_DATA) { sum += w; count++; }
+        const w: number = s.grid[(r0 + rr) * cols + c0 + cc];
+        if (w <= HAS_DATA) continue;
+        sum += w;
+        count++;
+        if (r0 + rr === row) { rmin = Math.min(rmin, w); rmax = Math.max(rmax, w); }
       }
-    if (k === 0) oceanCells = count;
+    if (k === 0) dataCells = count;
+    const mean = count ? sum / count : 0;
+    const v: number = mode === "area" ? s.grid[row * cols + col] : mean;
+    const has = v > HAS_DATA;
     if (!has) rests.add(k);
-    padLevel.push(count ? sum / count : 0);
-    steps.push({ row, col, value: has ? v : null, note: has ? noteFor(v) : null, frame: s.index });
+    padLevel.push(mean);
+    rowRange.push(rmax >= rmin ? [rmin, rmax] : null);
+    steps.push({ row: mode === "area" ? row : -1, col: mode === "area" ? col : -1, value: has ? v : null, note: has ? noteFor(v) : null, frame: s.index });
     dense.push({ t, mean: has ? v : 0, motion: s.motion, grid: tl.frames[s.index].grid, events: [], date: tl.frames[s.index].date });
   }
+  const at = (t: number) => Math.min(n - 1, Math.max(0, Math.floor(t / STEP + 1e-6)));
+  const first = steps.find((x) => x.value !== null)?.value ?? null;
+  const captionAt = (t: number) => {
+    const k = at(t), st = steps[k], date = prettyDate(tl.frames[st.frame].date);
+    if (!dataCells && rests.size === n) return `No ${layer.label.toLowerCase()} data around here, so there is no melody.`;
+    if (mode === "area") {
+      const r = rowRange[k], rowNo = st.row - r0 + 1;
+      return r
+        ? `${date}. Sweeping row ${rowNo} of ${VIEW_ROWS}, west to east: ${fmt(r[0])} to ${fmt(r[1])}. Higher notes are ${layer.higher}.`
+        : `${date}. Sweeping row ${rowNo} of ${VIEW_ROWS}: ${layer.noData.toLowerCase()} here, so it is silent.`;
+    }
+    if (st.value === null) return `${date}. ${layer.noData} across the whole picture, so it is silent.`;
+    const d = first === null ? 0 : st.value - first, span = Math.abs(d) * (vmax - vmin);
+    const change = span < 10 ** -layer.decimals ? "about the same as at the start" : `${d > 0 ? "up" : "down"} ${span.toFixed(layer.decimals)} since the start`;
+    return `${date}. The whole picture averages ${fmt(st.value)} (note ${st.note}), ${change}.`;
+  };
   return {
-    frames: tl.frames, grid: tl.meta.grid, window: { r0, c0 }, home,
-    valueRange: (tl.meta.value_range as [number, number]) ?? [0, 1],
-    lo, hi, scale: notes.map((m) => core.midiToName(m)),
-    stepSeconds: STEP, passSeconds: cells * STEP, barSeconds: STEP * MAP.stepsPerBar, oceanCells,
-    stepAt: (t) => steps[Math.min(n - 1, Math.max(0, Math.floor(t / STEP + 1e-6)))],
+    layer, mode, frames: tl.frames, grid: tl.meta.grid, window: { r0, c0 }, home, lo, hi,
+    scale: notes.map((m) => core.midiToName(m)),
+    stepSeconds: STEP, passSeconds: cells * STEP, barSeconds: STEP * map.stepsPerBar, dataCells,
+    dates: [prettyDate(tl.frames[0].date), prettyDate(tl.frames[tl.frames.length - 1].date)],
+    fmt, stepAt: (t) => steps[at(t)], captionAt,
     timeline: { meta: { ...tl.meta, fps: 1 / STEP, frame_step: 1, n_frames: n }, frames: dense },
     rests, padLevel,
   };
@@ -97,56 +135,68 @@ export function useJukebox() {
     engine?: { setMaster: (g: number, t: number) => void; start: (t: number) => void };
     player?: { setSource: (clock: unknown, tl: Timeline, map: unknown) => void; start: () => void; stop: () => void };
     clock?: { currentTime: number; play: () => void; pause: () => void };
-    tl?: Timeline;
-    sweep?: SoundRecipe; // the sweep now playing
+    timelines: Partial<Record<LayerId, Promise<Timeline>>>;
+    song?: SoundRecipe; // the song now playing
     volume: number;
-  }>({ volume: 0.75 });
+  }>({ volume: 0.75, timelines: {} });
+
+  /* Each layer's timeline is fetched once and kept. */
+  const timeline = useCallback((layer: LayerId) => {
+    const s = st.current;
+    return (s.timelines[layer] ??= fetch(asset(LAYERS[layer].file)).then((r) => {
+      if (!r.ok) throw new Error(`Could not load ${LAYERS[layer].file} (HTTP ${r.status})`);
+      return r.json();
+    }));
+  }, []);
 
   /* Must first run inside a click/keypress (browsers only start audio from a user gesture). */
   const ensure = useCallback(async () => {
     const s = st.current;
     if (s.player) return s;
-    const [Tone, tl] = await Promise.all([import("tone"), fetch(asset("/sonify/sst-global.json")).then((r) => r.json())]);
+    const Tone = await import("tone");
     await Tone.start();
+    if (s.player) return s; // a second call finished first
     s.Tone = Tone;
-    s.tl = tl;
-    s.engine = Engine.createEngine(Tone, core, MAP);
+    s.engine = Engine.createEngine(Tone, core, MAPS.area);
     s.engine!.start(Tone.now());
     s.engine!.setMaster(s.volume * 0.65, Tone.now());
-    /* The engine is used as it is. Two of the functions it calls are wrapped so the sweep is honest:
-       a land cell is a rest (not the lowest note), each note sits left/right where its cell is, and the
-       background tone follows the mean of the whole window instead of jumping cell to cell. */
+    /* The engine is used as it is. Two of the functions it calls are wrapped so the song is honest:
+       a cell with no data is a rest (not the lowest note), in area mode each note sits left/right where its cell is,
+       and the background tone follows the mean of the whole window instead of jumping cell to cell. */
     const stepOf = (t: number) => Math.round(t / STEP);
-    const sweepCore = {
+    const songCore = {
       ...core,
       scoreWindow: (tl2: Timeline, map: unknown, stats: unknown, from: number, to: number) =>
         (core.scoreWindow(tl2, map, stats, from, to) as { t: number; kind: string; pan?: number }[]).flatMap((ev) => {
-          const sw = st.current.sweep;
-          if (ev.kind !== "lead" || !sw) return [ev];
-          if (sw.rests.has(stepOf(ev.t))) return [];
-          return [{ ...ev, pan: ((sw.stepAt(ev.t).col - sw.window.c0) / (VIEW_COLS - 1)) * 1.6 - 0.8 }];
+          const sg = st.current.song;
+          if (ev.kind !== "lead" || !sg) return [ev];
+          if (sg.rests.has(stepOf(ev.t))) return [];
+          if (sg.mode === "time") return [{ ...ev, pan: 0 }];
+          return [{ ...ev, pan: ((sg.stepAt(ev.t).col - sg.window.c0) / (VIEW_COLS - 1)) * 1.6 - 0.8 }];
         }),
       padTargets: (sample: { t: number; mean: number }, map: unknown, stats: unknown) => {
-        const sw = st.current.sweep;
-        const mean = sw ? sw.padLevel[Math.min(sw.padLevel.length - 1, Math.max(0, stepOf(sample.t)))] : sample.mean;
+        const sg = st.current.song;
+        const mean = sg ? sg.padLevel[Math.min(sg.padLevel.length - 1, Math.max(0, stepOf(sample.t)))] : sample.mean;
         return core.padTargets({ ...sample, mean }, map, stats);
       },
     };
-    s.player = Engine.createPlayer(Tone, sweepCore, s.engine, TOGGLES);
+    s.player = Engine.createPlayer(Tone, songCore, s.engine, TOGGLES);
     s.player!.start();
     return s;
   }, []);
 
-  const play = useCallback(async (place: Place, fromSeconds = 0) => {
-    const s = await ensure();
+  const recipe = useCallback(async (place: Place, layer: LayerId, mode: SonMode) => recipeFor(await timeline(layer), place, LAYERS[layer], mode), [timeline]);
+
+  const play = useCallback(async (place: Place, layer: LayerId, mode: SonMode, fromSeconds = 0) => {
+    const [s, song] = await Promise.all([ensure(), recipe(place, layer, mode)]);
     s.clock?.pause();
     const clock = core.makeClipClock(TIMELINE_SECONDS, () => performance.now() / 1000);
     clock.currentTime = fromSeconds;
-    s.sweep = recipeFor(s.tl!, place);
-    s.player!.setSource(clock, s.sweep.timeline, MAP);
+    s.song = song;
+    s.player!.setSource(clock, song.timeline, MAPS[mode]);
     s.clock = clock;
     clock.play();
-  }, [ensure]);
+  }, [ensure, recipe]);
 
   const pause = useCallback(() => {
     st.current.clock?.pause();
@@ -159,9 +209,7 @@ export function useJukebox() {
     s.volume = v;
     if (s.engine && s.Tone) s.engine.setMaster(v * 0.65, s.Tone.now());
   }, []);
-
-  /* For the "how this sound is made" panel: the sweep for a place, and the position of the clip clock in seconds. */
-  const recipe = useCallback(async (place: Place) => recipeFor((await ensure()).tl!, place), [ensure]);
+  /* Position of the clip clock in seconds (0 before anything has played). */
   const time = useCallback(() => st.current.clock?.currentTime ?? 0, []);
 
   useEffect(() => () => { st.current.clock?.pause(); st.current.player?.stop(); }, []);

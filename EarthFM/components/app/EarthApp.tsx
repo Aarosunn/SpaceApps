@@ -8,7 +8,6 @@ import { MapDot } from "@/components/MapDot";
 import { TopLeft } from "@/components/TopLeft";
 import { Mixtape, type Stop } from "@/components/Mixtape";
 import { NowListening, SoundPlayer } from "@/components/Player";
-import { YearPicker } from "@/components/YearPicker";
 import { MenuPanel, TopLeftOpen } from "@/components/menu-open/MenuPanel";
 import { SharePopover } from "@/components/mixtape-shared/SharePopover";
 import { ShowControlsPill } from "@/components/controls-hidden/ShowControlsPill";
@@ -16,30 +15,24 @@ import { HalfScrim } from "@/components/controls-hidden/Caption";
 import { WordCaption } from "./WordCaption";
 import { ShowPlaylistTab } from "@/components/playlist-hidden/ShowPlaylistTab";
 import { asset } from "@/components/asset";
-import { findArea, latLonToXy, layerFor, regionName, surfaceOf, xyToLatLon, type Surface } from "@/lib/geo";
+import { findArea, latLonToXy, regionName, surfaceOf, xyToLatLon, type Surface } from "@/lib/geo";
 import { legPath, pointOnLeg } from "@/lib/route";
 import { TIMELINE_SECONDS, useJukebox, type SoundRecipe } from "@/lib/sonify/useJukebox";
+import { LAYERS, type LayerId, type SonMode } from "@/lib/sonify/layers";
 import { HowButton, HowPanel } from "@/components/how/HowPanel";
 import s from "./EarthApp.module.css";
 
 const W = 1440, H = 900;
 const HOVER_DELAY_MS = 450; // debounce: the card only appears once the cursor rests this long
 const TRACK_SECONDS = Math.round(TIMELINE_SECONDS); // one pass of the SVS 3912 timeline per stop
-const LAND_LAYER = "Wildfires";
-const LAND_SHORT = "Fires";
 const MAX_STOPS = 7;
 const FLIGHT_MS = 2600; // plane flight between songs
 const LANDING_GAP_MS = 700; // quiet beat after landing, before the next song starts
 const IDLE_CAPTION = "Hover the map to explore. Click a place to listen, + to add it, ? to see how the sound is made.";
 
-type Place = { name: string; layer: string; x: number; y: number; surface: Surface };
+type Place = { name: string; x: number; y: number; surface: Surface };
 
 
-const CAPTIONS: Record<string, string> = {
-  Fires: "Fast crackle, heavy fire. Bass rising.",
-  "Sea heat": "Warm swell, slow pads. Pitch climbing.",
-  "Sea ice": "Thin chimes, thinning out as the ice retreats.",
-};
 
 const mmss = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
 
@@ -94,7 +87,8 @@ export function EarthApp() {
   const [elapsed, setElapsed] = useState(0);
   const [playToken, setPlayToken] = useState(0); // bumps whenever a song (re)starts from the top
   const [volume, setVolume] = useState(0.75);
-  const [year, setYear] = useState(2019);
+  const [layer, setLayer] = useState<LayerId>("sst"); // which NASA data layer every place plays
+  const [sonMode, setSonMode] = useState<SonMode>("area"); // "area": sweep the picture; "time": follow its average through the dates
   const [menuOpen, setMenuOpen] = useState(false);
   const [controlsHidden, setControlsHidden] = useState(false);
   const [playlistHidden, setPlaylistHidden] = useState(false);
@@ -107,7 +101,7 @@ export function EarthApp() {
   // "How this sound is made" panel: opens for a place when it is added with +, or with the ? key / button.
   const [how, setHow] = useState<Place | null>(null);
   const [howOpen, setHowOpen] = useState(false);
-  const [recipe, setRecipe] = useState<{ name: string; data: SoundRecipe } | null>(null);
+  const [recipe, setRecipe] = useState<{ key: string; data: SoundRecipe } | null>(null);
   // Plane flight between two songs: the only time the plane is on screen.
   type Flight = { from: Place; to: Place; toIdx: number; t: number };
   const [flight, setFlight] = useState<Flight | null>(null);
@@ -128,7 +122,7 @@ export function EarthApp() {
       const surface = sample(x, y);
       const { lat, lon } = xyToLatLon(x, y);
       const name = regionName(lat, lon, surface);
-      return { name, layer: layerFor(surface, name, LAND_SHORT), x, y, surface };
+      return { name, x, y, surface };
     },
     [sample],
   );
@@ -223,7 +217,7 @@ export function EarthApp() {
 
   // Drive the sonification engine from the player state. A new playToken restarts the song from the top;
   // otherwise play/pause just resumes or pauses the same clip clock. Flights are silent (the quiet gap between songs).
-  const audioKey = nowPlaying && !flight ? `${nowPlaying.name}#${playToken}` : null;
+  const audioKey = nowPlaying && !flight ? `${nowPlaying.name}#${playToken}#${layer}#${sonMode}` : null;
   const audioState = useRef({ key: null as string | null, place: nowPlaying, elapsed });
   useEffect(() => {
     audioState.current.place = nowPlaying;
@@ -241,8 +235,8 @@ export function EarthApp() {
     }
     a.key = audioKey;
     const { lat, lon } = xyToLatLon(a.place.x, a.place.y);
-    void jb.play({ lat, lon, surface: a.place.surface }, a.elapsed);
-  }, [audioKey, playing, jb]);
+    void jb.play({ lat, lon }, layer, sonMode, a.elapsed);
+  }, [audioKey, playing, jb, layer, sonMode]);
   useEffect(() => {
     jb.setVolume(volume);
   }, [volume, jb]);
@@ -302,17 +296,33 @@ export function EarthApp() {
     [stops, preview],
   );
 
-  // Load the recipe (data + notes) for the place the panel describes. Uses the same functions as the player.
-  const loadRecipe = jb.recipe;
+  // The song (data + notes) for the place shown on the panel and in the caption: the one playing now, else the one
+  // last added. It is built by the same function the player uses, for the current layer and mode.
+  const shown: Place | null = nowPlaying ?? how;
+  const songKey = shown ? `${shown.name}|${Math.round(shown.x)},${Math.round(shown.y)}|${layer}|${sonMode}` : null;
+  const loadRecipe = jb.recipe; // stable; `jb` itself is a new object every render
   useEffect(() => {
-    if (!howOpen || !how) return;
+    if (!shown || !songKey) return;
     let stale = false;
-    const { lat, lon } = xyToLatLon(how.x, how.y);
-    void loadRecipe({ lat, lon, surface: how.surface }).then((data) => !stale && setRecipe({ name: how.name, data }));
+    const { lat, lon } = xyToLatLon(shown.x, shown.y);
+    loadRecipe({ lat, lon }, layer, sonMode)
+      .then((data) => !stale && setRecipe({ key: songKey, data }))
+      .catch((e: Error) => !stale && setNotice(e.message));
     return () => {
       stale = true;
     };
-  }, [howOpen, how, loadRecipe]); // loadRecipe is stable; `jb` itself is a new object every render
+  }, [songKey]); // eslint-disable-line react-hooks/exhaustive-deps -- songKey covers shown, layer and sonMode
+  const song = recipe && recipe.key === songKey ? recipe.data : null;
+  // Jump to a point in the song (click on the progress bar): restart the clip clock from there.
+  const seek = useCallback(
+    (fraction: number) => {
+      if (!nowPlaying || flight) return;
+      setElapsed(Math.min(TRACK_SECONDS - 1, Math.max(0, Math.floor(fraction * TRACK_SECONDS))));
+      setPlayToken((k) => k + 1);
+      setPlaying(true);
+    },
+    [nowPlaying, flight],
+  );
   const toggleHow = useCallback(() => {
     if (howOpen) return setHowOpen(false);
     const target = nowPlaying ?? how ?? stops[stops.length - 1] ?? null;
@@ -375,7 +385,7 @@ export function EarthApp() {
     }
     const { x, y } = latLonToXy(hit.lat, hit.lon);
     const surface: Surface = hit.water ? "water" : "land";
-    const place = { name: hit.name, layer: layerFor(surface, hit.name, LAND_SHORT), x, y, surface };
+    const place = { name: hit.name, x, y, surface };
     const i = stops.findIndex((st) => st.name === place.name);
     if (i >= 0) playStop(i);
     else playPreview(place);
@@ -399,8 +409,7 @@ export function EarthApp() {
         setMenuOpen(false);
         setShareOpen(false);
         setPickMode(false);
-      } else if (k === "arrowleft") setYear((y) => Math.max(2001, y - 1));
-      else if (k === "arrowright") setYear((y) => Math.min(2025, y + 1));
+      }
       else if (k === "+" || k === "=") addPlace(hover ?? lastHover.current ?? preview);
       else if (k === "?") toggleHow();
       else if (k === " " && t.tagName !== "BUTTON") {
@@ -419,28 +428,31 @@ export function EarthApp() {
   const plane = flight && pointOnLeg(flight.from, flight.to, ease(flight.t));
   const fromIdx = flight ? stops.indexOf(flight.from) : -1;
   const flyingLeg = flight && Math.abs(fromIdx - flight.toIdx) === 1 ? Math.min(fromIdx, flight.toIdx) : -1;
+  const layerLabel = LAYERS[layer].label;
   const mixStops: Stop[] = stops.map((st, i) => ({
     n: i + 1,
     name: st.name,
     active: flight ? i === flight.toIdx : i === activeIdx,
     sub:
       flight && i === flight.toIdx
-        ? `${st.layer} · flying there now`
+        ? `${layerLabel} · flying there now`
         : flight && i === fromIdx
-          ? `${st.layer} · played`
+          ? `${layerLabel} · played`
           : i === activeIdx
-        ? `${st.layer} · ${playing ? "playing now" : "paused"}`
+        ? `${layerLabel} · ${playing ? "playing now" : "paused"}`
         : i < activeIdx
-          ? `${st.layer} · played`
+          ? `${layerLabel} · played`
           : i === activeIdx + 1
-            ? `${st.layer} · next, flying there`
-            : `${st.layer} · then, flying there`,
+            ? `${layerLabel} · next, flying there`
+            : `${layerLabel} · then, flying there`,
   }));
   const meta = `Mixtape · ${stops.length} stops · ${mmss(stops.length * 164)}`; // Figma: 3 stops = 8:12 (2:44 per stop incl. travel)
   const caption =
     notice ??
-    (flight ? `Flying to ${flight.to.name}…` : pickMode ? "Click a place on the map to add it." : nowPlaying ? CAPTIONS[nowPlaying.layer] ?? CAPTIONS.Fires : IDLE_CAPTION);
-  const nowText = flight ? `Up next: ${flight.to.name} ${year}` : nowPlaying ? `Now listening: ${nowPlaying.name} ${year}` : "Now listening: nothing yet";
+    (flight ? `Flying to ${flight.to.name}…` : pickMode ? "Click a place on the map to add it." : nowPlaying ? (song ? song.captionAt(elapsed) : `Loading ${layerLabel.toLowerCase()}…`) : IDLE_CAPTION);
+  // "Place · layer · first date – last date" (the dates the song runs through)
+  const span = song ? ` · ${song.dates[0]} – ${song.dates[1]}` : "";
+  const nowText = flight ? `Up next: ${flight.to.name} · ${layerLabel}` : nowPlaying ? `${nowPlaying.name} · ${layerLabel}${span}` : "Now listening: nothing yet";
   // The vehicle rides the current leg (current stop -> next) as the track plays; boat if the next stop is at sea.
   const legOpacity = (i: number) =>
     flight ? (i === flyingLeg ? 1 : 0.3) : activeIdx < 0 ? 0.45 : i === activeIdx ? 1 : i < activeIdx ? 0.25 : 0.45; // current leg bright, upcoming dim, played faint
@@ -478,15 +490,14 @@ export function EarthApp() {
                   kind={i === activeIdx ? "Playing" : "Queued"}
                   left={st.x - 22}
                   top={st.y - 22}
-                  label={`Stop ${i + 1}: ${st.name}, ${st.layer}${i === activeIdx ? ", playing" : ""}`}
+                  label={`Stop ${i + 1}: ${st.name}, ${layerLabel}${i === activeIdx ? ", playing" : ""}`}
                   onClick={() => goTo(i)}
                 />
               ))}
-              {hover && card && <HoverCard left={card.left} top={card.top} title={`${hover.name} · ${hover.layer} · ${year}`} hint="Click to play · + to add to mixtape" />}
+              {hover && card && <HoverCard left={card.left} top={card.top} title={`${hover.name} · ${layerLabel}`} hint="Click to play · + to add to mixtape" />}
             </MapLayer>
 
             {controlsHidden ? <HalfScrim /> : <Scrim />}
-            {!controlsHidden && <YearPicker layer={LAND_LAYER} year={year} onYear={setYear} arrows={false} />}
             <WordCaption text={caption} />
             {!controlsHidden && (
               <>
@@ -494,6 +505,7 @@ export function EarthApp() {
                 <SoundPlayer
                   time={`${mmss(elapsed)} / ${mmss(TRACK_SECONDS)}`}
                   progress={elapsed / TRACK_SECONDS}
+                  onSeek={seek}
                   playing={playing}
                   volume={volume}
                   onPlayPause={togglePlay}
@@ -505,7 +517,7 @@ export function EarthApp() {
             )}
             {controlsHidden && (
               <ShowControlsPill
-                title={nowPlaying ? `${nowPlaying.name} · ${year}` : "Nothing playing"}
+                title={nowPlaying ? `${nowPlaying.name} · ${layerLabel}` : "Nothing playing"}
                 playing={playing}
                 onPlayPause={togglePlay}
                 onNext={next}
@@ -536,20 +548,14 @@ export function EarthApp() {
               </Mixtape>
             )}
 
-            {!menuOpen && howOpen && how && (
-              <HowPanel
-                placeName={how.name}
-                recipe={recipe?.name === how.name ? recipe.data : null}
-                live={!flight && nowPlaying?.name === how.name}
-                getTime={jb.time}
-                onClose={() => setHowOpen(false)}
-              />
+            {!menuOpen && howOpen && shown && (
+              <HowPanel placeName={shown.name} recipe={song} live={!flight && nowPlaying?.name === shown.name} getTime={jb.time} onClose={() => setHowOpen(false)} />
             )}
             {!menuOpen && !howOpen && (stops.length > 0 || nowPlaying) && <HowButton onClick={toggleHow} />}
 
             {menuOpen ? (
               <>
-                <MenuPanel onClose={() => setMenuOpen(false)} onMode={(m) => m === "play" && router.push("/play")} />
+                <MenuPanel onClose={() => setMenuOpen(false)} onMode={(m) => m === "play" && router.push("/play")} layer={layer} onLayer={setLayer} sonMode={sonMode} onSonMode={setSonMode} />
                 <TopLeftOpen onMenu={() => setMenuOpen(false)} query={query} onQuery={setQuery} />
               </>
             ) : (

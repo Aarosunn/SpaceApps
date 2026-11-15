@@ -29,9 +29,10 @@ type PlayerProps = {
   onPrev?: () => void;
   onNext?: () => void;
   onVolume?: (v: number) => void;
+  onSeek?: (fraction: number) => void; // click anywhere on the progress bar: 0 = start, 1 = end
 };
 
-export function SoundPlayer({ time = "0:57 / 1:15", volume = 0.75, playing = true, progress, onPlayPause, onPrev, onNext, onVolume }: PlayerProps) {
+export function SoundPlayer({ time = "0:57 / 1:15", volume = 0.75, playing = true, progress, onPlayPause, onPrev, onNext, onVolume, onSeek }: PlayerProps) {
   const pct = `${Math.max(0, Math.min(1, volume)) * 100}%`; // track spans the slider box, so 100% lands on its right end
   const head = progress === undefined ? PLAYHEAD : Math.min(WAVE.length - 1, Math.floor(progress * WAVE.length));
   const setFromClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -54,7 +55,27 @@ export function SoundPlayer({ time = "0:57 / 1:15", volume = 0.75, playing = tru
         </div>
         <div className={s.timeline}>
           <p className={s.time}>{time}</p>
-          <div className={s.wave} aria-hidden="true">
+          <div
+            className={s.wave}
+            style={onSeek ? { cursor: "pointer" } : undefined}
+            role={onSeek ? "slider" : undefined}
+            tabIndex={onSeek ? 0 : undefined}
+            aria-label={onSeek ? "Position in the song" : undefined}
+            aria-valuemin={onSeek ? 0 : undefined}
+            aria-valuemax={onSeek ? 100 : undefined}
+            aria-valuenow={onSeek ? Math.round((progress ?? 0) * 100) : undefined}
+            aria-hidden={onSeek ? undefined : true}
+            onClick={(e) => {
+              const r = e.currentTarget.getBoundingClientRect();
+              onSeek?.(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)));
+            }}
+            onKeyDown={(e) => {
+              if (!onSeek || (e.key !== "ArrowLeft" && e.key !== "ArrowRight")) return;
+              e.preventDefault();
+              e.stopPropagation();
+              onSeek(Math.max(0, Math.min(1, (progress ?? 0) + (e.key === "ArrowRight" ? 0.05 : -0.05))));
+            }}
+          >
             {WAVE.map((h, i) => (
               <div key={i} className={`${s.waveBar} ${i === head ? s.waveNow : i > head ? s.waveAhead : ""}`} style={{ height: h }} />
             ))}
