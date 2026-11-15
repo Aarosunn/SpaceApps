@@ -79,12 +79,6 @@ export function HowPanel({ placeName, recipe, live, getTime, onClose }: Props) {
             g.fillText(short(v), x + CELL / 2, y + CELL / 2 + 0.5);
           }
         }
-      // where the place itself is: a small ring
-      g.strokeStyle = "#f4f1e8";
-      g.lineWidth = 2;
-      g.beginPath();
-      g.arc((r.home.col - c0 + 0.5) * CELL, (r.home.row - r0 + 0.5) * CELL, CELL / 2 - 5, 0, 2 * Math.PI);
-      g.stroke();
       // what is being read now: one square (by area) or the whole picture (by time)
       g.strokeStyle = "#d8f07a";
       g.lineWidth = 3;
@@ -165,7 +159,7 @@ export function HowPanel({ placeName, recipe, live, getTime, onClose }: Props) {
             <ol className={s.steps}>
               <li><b>NASA picture.</b> {r.layer.picture} {r.frames.length} dates are used, from {r.dates[0]} to {r.dates[1]}.</li>
               <li><b>Picture → number.</b> {r.layer.reading}</li>
-              <li><b>Grid.</b> The whole map is cut into 10-degree squares ({r.grid[0]} × {r.grid[1]}) and each square is averaged. The panel shows the {VIEW_COLS} × {VIEW_ROWS} squares around your place; the ring marks the place itself.</li>
+              <li><b>Grid.</b> The whole map is cut into 10-degree squares ({r.grid[0]} × {r.grid[1]}) and each square is averaged. The panel shows the {VIEW_COLS} × {VIEW_ROWS} squares around your place.</li>
               {area ? (
                 <li><b>By area: the sweep.</b> The melody reads one square every {r.stepSeconds} seconds: left to right along the top row, then the next row down, then back to the start. One pass takes {r.passSeconds} seconds. Notes on the left of the picture come from your left speaker, notes on the right from your right. While the sweep repeats, the picture moves through the dates in order.</li>
               ) : (

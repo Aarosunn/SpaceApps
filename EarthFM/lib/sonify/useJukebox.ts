@@ -103,20 +103,23 @@ export function recipeFor(tl: Timeline, p: Place, layer: Layer, mode: SonMode): 
     dense.push({ t, mean: has ? v : 0, motion: s.motion, grid: tl.frames[s.index].grid, events: [], date: tl.frames[s.index].date });
   }
   const at = (t: number) => Math.min(n - 1, Math.max(0, Math.floor(t / STEP + 1e-6)));
-  const first = steps.find((x) => x.value !== null)?.value ?? null;
+  // A short caption: how it sounds, and why. "High notes: warm water, 27.6 to 29.0 °C."
+  const band = (v: number) => { const u = core.norm(v, lo, hi); return u < 1 / 3 ? 0 : u < 2 / 3 ? 1 : 2; };
+  const PITCH = ["Low", "Mid", "High"];
+  // one decimal fewer than the readout, so the caption does not rewrite itself on every tiny change
+  const round = (v: number) => (vmin + v * (vmax - vmin)).toFixed(Math.max(0, layer.decimals - 1));
   const captionAt = (t: number) => {
-    const k = at(t), st = steps[k], date = prettyDate(tl.frames[st.frame].date);
-    if (!dataCells && rests.size === n) return `No ${layer.label.toLowerCase()} data around here, so there is no melody.`;
+    const k = at(t), st = steps[k];
     if (mode === "area") {
-      const r = rowRange[k], rowNo = st.row - r0 + 1;
-      return r
-        ? `${date}. Sweeping row ${rowNo} of ${VIEW_ROWS}, west to east: ${fmt(r[0])} to ${fmt(r[1])}. Higher notes are ${layer.higher}.`
-        : `${date}. Sweeping row ${rowNo} of ${VIEW_ROWS}: ${layer.noData.toLowerCase()} here, so it is silent.`;
+      const r = rowRange[k];
+      if (!r) return `Silent: ${layer.noData.toLowerCase()} in this row.`;
+      const b = band((r[0] + r[1]) / 2);
+      return `${PITCH[b]} notes: ${layer.words[b]}, ${round(r[0])} to ${round(r[1])}${layer.unit}.`;
     }
-    if (st.value === null) return `${date}. ${layer.noData} across the whole picture, so it is silent.`;
-    const d = first === null ? 0 : st.value - first, span = Math.abs(d) * (vmax - vmin);
-    const change = span < 10 ** -layer.decimals ? "about the same as at the start" : `${d > 0 ? "up" : "down"} ${span.toFixed(layer.decimals)} since the start`;
-    return `${date}. The whole picture averages ${fmt(st.value)} (note ${st.note}), ${change}.`;
+    if (st.value === null) return `Silent: ${layer.noData.toLowerCase()} here.`;
+    const before = steps[Math.max(0, k - 16)].value ?? st.value, d = st.value - before; // against 4 seconds ago
+    const b = band(st.value), moving = Math.abs(d) < 0.004 ? "steady" : d > 0 ? "rising" : "falling";
+    return `${PITCH[b]} notes, ${moving}: ${layer.words[b]}, ${round(st.value)}${layer.unit}.`;
   };
   return {
     layer, mode, frames: tl.frames, grid: tl.meta.grid, window: { r0, c0 }, home, lo, hi,

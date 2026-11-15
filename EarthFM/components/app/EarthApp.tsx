@@ -28,7 +28,7 @@ const TRACK_SECONDS = Math.round(TIMELINE_SECONDS); // one pass of the SVS 3912 
 const MAX_STOPS = 7;
 const FLIGHT_MS = 2600; // plane flight between songs
 const LANDING_GAP_MS = 700; // quiet beat after landing, before the next song starts
-const IDLE_CAPTION = "Hover the map to explore. Click a place to listen, + to add it, ? to see how the sound is made.";
+const IDLE_CAPTION = "Click a place to listen, + to add it, drag a stop to move it.";
 
 type Place = { name: string; x: number; y: number; surface: Surface };
 
@@ -130,6 +130,40 @@ export function EarthApp() {
   const toStage = (e: React.PointerEvent | React.MouseEvent) => {
     const r = stageRef.current!.getBoundingClientRect();
     return { x: ((e.clientX - r.left) * W) / r.width, y: ((e.clientY - r.top) * H) / r.height };
+  };
+
+  // Drag a waypoint to a new place. A press that moves less than 5 px is still a click (play that stop).
+  const dragged = useRef(false);
+  const startDrag = (i: number, e: React.PointerEvent) => {
+    if (flightRef.current || e.button !== 0) return;
+    const from = stops[i], sx = e.clientX, sy = e.clientY;
+    const at = (ev: PointerEvent) => {
+      const r = stageRef.current!.getBoundingClientRect();
+      return { x: Math.min(W, Math.max(0, ((ev.clientX - r.left) * W) / r.width)), y: Math.min(H, Math.max(0, ((ev.clientY - r.top) * H) / r.height)) };
+    };
+    const move = (ev: PointerEvent) => {
+      if (!dragged.current && Math.hypot(ev.clientX - sx, ev.clientY - sy) < 5) return;
+      dragged.current = true;
+      const p = at(ev);
+      setStops((list) => list.map((st, j) => (j === i ? { ...st, x: p.x, y: p.y } : st)));
+    };
+    const up = (ev: PointerEvent) => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      if (!dragged.current) return;
+      setTimeout(() => (dragged.current = false), 0); // let the click that follows the release be ignored
+      const p = at(ev), place = describe(p.x, p.y);
+      if (stops.some((st, j) => j !== i && st.name === place.name)) {
+        setStops((list) => list.map((st, j) => (j === i ? from : st))); // one stop per area: put it back
+        setNotice(`${place.name} is already in the mixtape.`);
+        return;
+      }
+      setStops((list) => list.map((st, j) => (j === i ? place : st)));
+      setNotice(`Moved stop ${i + 1} to ${place.name}.`);
+      if (i === current && !preview) setPlayToken((k) => k + 1); // it is playing: carry on from the new place
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
   };
 
   const onMapMove = (e: React.PointerEvent) => {
@@ -485,13 +519,14 @@ export function EarthApp() {
               {plane && <Plane left={plane.x - 26.44} top={plane.y - 26.44} rotate={plane.heading + 45} />}
               {stops.map((st, i) => (
                 <MapDot
-                  key={st.name}
+                  key={i}
                   n={i + 1}
                   kind={i === activeIdx ? "Playing" : "Queued"}
                   left={st.x - 22}
                   top={st.y - 22}
                   label={`Stop ${i + 1}: ${st.name}, ${layerLabel}${i === activeIdx ? ", playing" : ""}`}
-                  onClick={() => goTo(i)}
+                  onClick={() => !dragged.current && goTo(i)}
+                  onDragStart={(e) => startDrag(i, e)}
                 />
               ))}
               {hover && card && <HoverCard left={card.left} top={card.top} title={`${hover.name} · ${layerLabel}`} hint="Click to play · + to add to mixtape" />}
