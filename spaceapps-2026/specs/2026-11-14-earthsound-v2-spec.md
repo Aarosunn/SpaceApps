@@ -30,7 +30,10 @@ Raw files already exist in `spaceapps-2026/notes/feasibility/data/` (downloaded 
 - **Move:** arrow keys (2° steps), on-screen arrow buttons, optional phone tilt (DeviceOrientation; iOS permission on tap).
 - **V key / "Say value" button:** announces lat/lon plus the value in words via the aria-live region (and speech if narration is on).
 
-### 4.2 Daily challenge — 5 rounds, the same for everyone (date-seeded)
+### 4.2 Challenge — 3 fixed, hand-curated days × 5 rounds
+- `days.json` lists 3 days of 5 round ids. The pipeline picks the most audible and dramatic rounds; the team swaps in better stories by hand.
+- **Day 1:** listening-test pre phase. **Day 2:** reserved for the live pitch, so judges get fresh rounds. **Day 3:** listening-test post phase.
+- Pitch line: "a new set daily in the full version" (no code for it).
 | # | Round type | Sound | Question | Options | Chance |
 |---|---|---|---|---|---|
 | 1 | **match** | Chord from the image's features (hue → root, brightness → register, saturation → voices, edge density → pulse rate) | Which visualization made this sound? | 4 thumbnails | 25% |
@@ -39,23 +42,41 @@ Raw files already exist in `spaceapps-2026/notes/feasibility/data/` (downloaded 
 | 4 | **season** | High clicks = northern-hemisphere lightning rate, low clicks = southern | Northern or southern summer? | 2 | 50% |
 | 5 | **rank3** | Three glides, left / centre / right | Which city's lights grew the most? | 3 | 33% |
 
-- thenNow picks brighter/dimmer 50/50 from the seed, because the natural pool is 82% brighter (R3).
+- The days mix brightening and dimming cities, because the natural pool is 82% brighter (R3).
 - Pools are pre-filtered so differences are audible:
   - thenNow: |change| ≥ 30% and change-map sign agrees.
   - whichMore light: p99 gap ≥ 60.
   - whichMore SST: gap ≥ 5 °C.
   - season: hemisphere ratio > 2 or < 0.5.
   - rank3: pairwise growth gap ≥ 25 points.
-- **Reveal after each answer:** correct/incorrect plus the measured number and source, e.g. "Dhaka: lights grew 116% between 2012 and 2023 (NASA SVS 5313)". An optional story line comes from `stories.json`.
+- **Synced reveal (the hero moment):**
+  - thenNow: zoom into the city on the original EIC night-lights frame, crossfading 2012 → 2023 while the glide replays.
+  - Compare rounds: rings and labels on the original EIC map.
+  - Season rounds: the actual lightning frame.
+  - Respects `prefers-reduced-motion`.
+- **Reveal text after each answer:** correct/incorrect plus the measured number and source, e.g. "Dhaka: lights grew 116% between 2012 and 2023 (NASA SVS 5313)". An optional story line comes from `stories.json`.
 - **End:** score, best streak, a copyable share line. No leaderboard, no timer.
+
+### 4.2b Intro
+- "Put your headphones on" screen with one Start button. The tap also unlocks audio on iOS.
+
+### 4.2c Visuals
+- Always show the original EIC imagery. Never recolor the data.
+- Use high-resolution frames (1440 px maps, 720 px city crops), not small thumbnails.
+- Our layer goes on top: cursor, rings, labels, the crossfade.
+- Story-led rounds and `stories.json` lines make it engaging, alongside the synced reveal.
+
+### 4.2d Data scope
+- Challenge rounds use **EIC (SVS) data only**, for Relevance.
+- Reveal text may cite other NASA sources for context, each listed in References.
 
 ### 4.3 Tutorial (45 s)
 - Four demo buttons, one per sound type ("rising glide = more light", etc.).
 - Plain text, read by screen readers; optional spoken narration.
 
 ### 4.4 Listening-test mode (the validity evidence)
-- URL params `?tester=ID&phase=pre|post&seed=N`.
-- Every answer is logged to localStorage: tester, phase, seed, round, type, answer, correct, ms.
+- URL params `?tester=ID&phase=pre|post&day=1|2|3`.
+- Every answer is logged to localStorage: tester, phase, day, round, type, answer, correct, ms.
 - "Download results (CSV)" exports the log. No server.
 
 ## 5. Accessibility requirements
@@ -71,8 +92,9 @@ Raw files already exist in `spaceapps-2026/notes/feasibility/data/` (downloaded 
 1. **Calibration:** pytest checks known cities land on lit pixels and known values reproduce (Dhaka > +50%, Kyiv < −15%, Mid-Pacific warmer than the Kuroshio in March by > 5 °C).
 2. **Ground truth:** every round's answer is computed from NASA pixels by the pipeline; the method is published in the README.
 3. **Listening test:** 8–10 people.
-   - pre phase: seeds 101 and 102, 10 answers, no tutorial.
-   - post phase: seeds 201 and 202, after the tutorial.
+   - pre phase: Day 1, no tutorial.
+   - post phase: Day 3, after the tutorial.
+   - Per person that's 5 answers per phase (one per round type), so ~40–50 answers per phase for 8–10 people.
    - Report accuracy per round type against chance.
 4. **Blind tester:** one screen-reader user does the post phase; their quotes go in the submission.
 
@@ -87,7 +109,35 @@ Raw files already exist in `spaceapps-2026/notes/feasibility/data/` (downloaded 
 - **Tilt plus VoiceOver doesn't work:** tilt stays optional; buttons and keys are the main path.
 - **No blind tester found:** submit with the sighted listening test only; lead with Art & Technology.
 
+## 8b. Demo formats
+- **Chicago live pitch: 5 minutes** (confirmed by the team). A judge plays Day 2 with headphones.
+- **Global judging:** 30-second video built around the synced reveal (hear, guess, zoom and crossfade, the number), plus the public project page.
+
 ## 9. Stack
 - Python 3 + numpy + Pillow (offline pipeline), pytest.
 - Static HTML + vanilla JS ES modules + Web Audio API (no framework, no audio library). `node --test` for the pure logic.
 - GitHub Pages via Actions.
+
+## 10. Postponed (decide later)
+- Sound design beyond the value-to-sound mapping (timbre, drone, levels, phone speakers).
+- Visual design (style, typography, overlay look).
+- Final name ("Earthsound" is a placeholder).
+
+## 11. Pitch day (1 day, 3 rounds) — supersedes §4.2 round types
+Format per round: reference sound → mystery sound → 4 options labelled with values → reveal + takeaway.
+
+| Round | Data (EIC) | Reference | Mystery | Options | Reveal / takeaway |
+|---|---|---|---|---|---|
+| 1 Lights On | Night lights 2012→2023, SVS 5313 | Johannesburg −2% (flat) | Nairobi | Nairobi +170% · Mumbai +73% · Shanghai +52% · Cairo −3% | Dark map, lights grow year by year in the 4 cities. "Lights show where people and power are growing." |
+| 2 Rising Seas | Sea level, SVS 5235 (Climate Vital Signs) | 1993 = 0 cm | 2013 | 2003 +3.0 · 2013 +6.5 · 2018 +9.1 · 2023 +11.3 cm | Porthole waterline rises 1993→2023. "Seas rose ~11 cm in 30 years, and faster each decade." |
+| 3 Arctic Heat | GISTEMP map 1880–2023, SVS 5207 (Climate Vital Signs) | 1951–80 avg = 0 °C | Arctic 2016 | 1880s −1.0 · 1986 +0.2 · 2001 +1.3 · 2016 ≥+2 °C | Map turns red decade by decade. "The Arctic warms far faster than the rest of Earth." |
+
+Sources: R3 (round 1), R4 `notes/R4-eic-datasets.md` (rounds 2–3). Verify the round 2–3 labels against NASA's published sea-level and GISTEMP numbers before shipping. Glide cap ±18 semitones.
+
+## 12. Two modes (decided 2026-11-14)
+- **Game mode:** the pre-saved, curated rounds (section 11).
+- **Globe mode:** replaces the flat Jukebox. One globe per day theme (lights, sea level, Arctic heat). Explore anywhere; the sound is generated procedurally from the data under the cursor (or from the visual where no decodable values exist).
+- Flags:
+  - The globe adds a 3D rendering dependency (e.g. three.js / globe.gl, pinned version).
+  - Sea level (SVS 5235) is a chart, not a map, so its globe theme needs a different layer.
+- Designs come from Figma via the Figma MCP.

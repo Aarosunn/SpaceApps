@@ -5,15 +5,17 @@
   width: 1440px;
   height: 900px;
 }
-.abs { position: absolute; }
+.abs { position: absolute; pointer-events: none; } /* decorations: let hover reach the map */
 .planeBox {
   position: absolute;
+  pointer-events: none;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 .cursorBox {
   position: absolute;
+  pointer-events: none;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -25,6 +27,7 @@
 }
 .hoverCard {
   position: absolute;
+  pointer-events: none;
   display: flex;
   flex-direction: column;
   gap: 6px;

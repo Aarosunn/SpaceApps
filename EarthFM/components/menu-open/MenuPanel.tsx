@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { asset } from "../asset";
 import { Icon } from "../Icon";
 import np from "../Player.module.css";
@@ -14,21 +17,23 @@ const DATA = [
 const GENRES = ["Lo-fi", "EDM", "Classical", "Ambient", "Hip-hop", "Jazz"];
 
 function Seg({ a: l, b, label }: { a: string; b: string; label: string }) {
+  const [first, setFirst] = useState(true);
   return (
     <div className={s.seg} role="radiogroup" aria-label={label}>
-      <button role="radio" aria-checked="true" className={`${s.segBtn} ${s.segOn}`}>{l}</button>
-      <button role="radio" aria-checked="false" className={s.segBtn}>{b}</button>
+      <button role="radio" aria-checked={first} className={`${s.segBtn} ${first ? s.segOn : ""}`} onClick={() => setFirst(true)}>{l}</button>
+      <button role="radio" aria-checked={!first} className={`${s.segBtn} ${first ? "" : s.segOn}`} onClick={() => setFirst(false)}>{b}</button>
     </div>
   );
 }
 
-function Toggle({ label, on }: { label: string; on: boolean }) {
+function Toggle({ label, on: initial }: { label: string; on: boolean }) {
+  const [on, setOn] = useState(initial);
   return (
     <div className={s.row}>
       <span className={s.rowLabel}>{label}</span>
       <span className={s.rowRight}>
         <span className={`${s.onoff} ${on ? "" : s.off}`}>{on ? "On" : "Off"}</span>
-        <button role="switch" aria-checked={on} aria-label={label} className={s.switch}>
+        <button role="switch" aria-checked={on} aria-label={label} className={s.switch} onClick={() => setOn(!on)}>
           <img alt="" src={a(on ? "switch-on" : "switch-off")} />
         </button>
       </span>
@@ -37,12 +42,24 @@ function Toggle({ label, on }: { label: string; on: boolean }) {
 }
 
 /* Settings menu panel, Figma 38:289. */
-export function MenuPanel() {
+function DataItem({ name, initial, bold }: { name: string; initial: boolean; bold: boolean }) {
+  const [on, setOn] = useState(initial);
+  return (
+    <label className={s.item}>
+      <input type="checkbox" checked={on} onChange={(e) => setOn(e.target.checked)} className={s.cb} />
+      {on ? <img alt="" width={18} height={18} src={a("check")} /> : <span className={s.box} />}
+      <span className={bold ? s.itemBold : s.itemText}>{name}</span>
+    </label>
+  );
+}
+
+export function MenuPanel({ onClose }: { onClose?: () => void }) {
+  const [genre, setGenre] = useState(GENRES[0]);
   return (
     <section className={s.panel} aria-label="Settings">
       <div className={s.header}>
         <h2 className={s.title}>Settings</h2>
-        <button className={s.close} aria-label="Close settings">
+        <button className={s.close} aria-label="Close settings (Esc)" onClick={onClose}>
           <img alt="" width={20} height={20} src={a("close")} />
         </button>
       </div>
@@ -50,19 +67,15 @@ export function MenuPanel() {
         <p className={s.label}>Data you are hearing</p>
         <div className={s.list}>
           {DATA.map(([n, on], i) => (
-            <label key={n} className={s.item}>
-              <input type="checkbox" defaultChecked={on} className={s.cb} />
-              {on ? <img alt="" width={18} height={18} src={a("check")} /> : <span className={s.box} />}
-              <span className={i === 0 ? s.itemBold : s.itemText}>{n}</span>
-            </label>
+            <DataItem key={n} name={n} initial={on} bold={i === 0} />
           ))}
         </div>
       </div>
       <div className={s.group}>
         <p className={s.label}>Genre</p>
         <div className={s.chips}>
-          {GENRES.map((g, i) => (
-            <button key={g} className={`${s.chip} ${i === 0 ? s.chipOn : ""}`} aria-pressed={i === 0}>{g}</button>
+          {GENRES.map((g) => (
+            <button key={g} className={`${s.chip} ${g === genre ? s.chipOn : ""}`} aria-pressed={g === genre} onClick={() => setGenre(g)}>{g}</button>
           ))}
         </div>
       </div>
@@ -104,14 +117,18 @@ export function MenuPanel() {
 }
 
 /* Top left with the menu button in its active (lime) state, Figma 38:254. */
-export function TopLeftOpen() {
+export function TopLeftOpen({ onMenu, query, onQuery }: { onMenu?: () => void; query?: string; onQuery?: (q: string) => void }) {
   return (
     <div className={s.top}>
-      <button className={s.menuBtn} aria-label="Close menu (M)" aria-expanded="true">
+      <button className={s.menuBtn} aria-label="Close menu (M)" aria-expanded="true" onClick={onMenu}>
         <Icon name="icon-menu" size={22} />
       </button>
       <div className={s.search} role="search">
-        <p className={s.searchText}>Search tracks or places</p>
+        {onQuery ? (
+          <input className={s.searchText} style={{ border: 0, outline: 0, background: "transparent", padding: 0 }} placeholder="Search tracks or places" aria-label="Search tracks or places" value={query ?? ""} onChange={(e) => onQuery(e.target.value)} />
+        ) : (
+          <p className={s.searchText}>Search tracks or places</p>
+        )}
         <Icon name="icon-search" size={18} />
       </div>
     </div>

@@ -1,0 +1,19 @@
+.viewport {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #0d140f;
+}
+.scaler {
+  position: relative;
+  flex-shrink: 0;
+}
+/* Map hit area: hides the system cursor; the rotated pin (PinCursor) follows the pointer instead. */
+.hit {
+  position: absolute;
+  inset: 0;
+  cursor: none;
+}

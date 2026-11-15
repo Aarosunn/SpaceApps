@@ -50,6 +50,7 @@
   background: var(--lime);
   box-shadow: var(--shadow-bar);
 }
+.bar { padding: 0; border: 0; cursor: pointer; }
 .future { background: var(--lime-45); }
 .selected {
   background: var(--white);

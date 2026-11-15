@@ -1,3 +1,5 @@
+"use client";
+
 import { asset } from "./asset";
 import { BleedAsset, Icon } from "./Icon";
 import s from "./Mixtape.module.css";
@@ -15,17 +17,27 @@ export function Mixtape({
   meta = "Mixtape · 3 stops · 8:12",
   title = "Fires of the Southern Hemisphere",
   stops = DEFAULT_STOPS,
+  onHide,
+  onSelect,
+  onAdd,
+  onShare,
+  shareOpen,
 }: {
   meta?: string;
   title?: string;
   stops?: Stop[];
+  onHide?: () => void;
+  onSelect?: (n: number) => void;
+  onAdd?: () => void;
+  onShare?: () => void;
+  shareOpen?: boolean;
 }) {
   return (
     <section className={s.panel} aria-label="Mixtape">
       <div className={s.titleBlock}>
         <div className={s.meta}>
           <p className={s.metaText}>{meta}</p>
-          <button className={s.hideBtn} aria-label="Hide playlist (P)">
+          <button className={s.hideBtn} aria-label="Hide playlist (P)" onClick={onHide}>
             <Icon name="icon-chevron-right" size={18} />
           </button>
         </div>
@@ -35,7 +47,7 @@ export function Mixtape({
         </div>
       </div>
       {stops.map((st) => (
-        <button key={st.n} className={`${s.stop} ${st.active ? s.stopActive : s.stopIdle}`}>
+        <button key={st.n} className={`${s.stop} ${st.active ? s.stopActive : s.stopIdle}`} aria-current={st.active || undefined} onClick={() => onSelect?.(st.n)}>
           <Icon name="icon-drag" size={16} />
           <span className={`${s.num} ${st.active ? s.numActive : s.numIdle}`}>{st.n}</span>
           <span className={s.stopText}>
@@ -46,13 +58,13 @@ export function Mixtape({
         </button>
       ))}
       <div className={s.actions}>
-        <button className={s.add}>
+        <button className={s.add} onClick={onAdd}>
           <span className={s.btnInner}>
             <Icon name="icon-plus" size={18} />
             <span className={s.btnText}>Add place</span>
           </span>
         </button>
-        <button className={s.share}>
+        <button className={s.share} onClick={onShare} aria-expanded={shareOpen}>
           <Icon name="icon-share" size={18} />
           <span className={s.btnText}>Share</span>
         </button>
