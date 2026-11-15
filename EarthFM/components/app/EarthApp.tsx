@@ -18,11 +18,12 @@ import { ShowPlaylistTab } from "@/components/playlist-hidden/ShowPlaylistTab";
 import { asset } from "@/components/asset";
 import { findArea, latLonToXy, layerFor, regionName, surfaceOf, xyToLatLon, type Surface } from "@/lib/geo";
 import { legPath, pointOnLeg } from "@/lib/route";
+import { TIMELINE_SECONDS, useJukebox } from "@/lib/sonify/useJukebox";
 import s from "./EarthApp.module.css";
 
 const W = 1440, H = 900;
 const HOVER_DELAY_MS = 450; // debounce: the card only appears once the cursor rests this long
-const TRACK_SECONDS = 75; // 1:15 per stop, as in the Figma player
+const TRACK_SECONDS = Math.round(TIMELINE_SECONDS); // one pass of the SVS 3912 timeline per stop
 const LAND_LAYER = "Wildfires";
 const LAND_SHORT = "Fires";
 const MAX_STOPS = 7;
@@ -82,6 +83,7 @@ export function EarthApp() {
   const scale = useFitScale();
   const router = useRouter();
   const sample = useMapSampler();
+  const jb = useJukebox(); // teammates' Tone.js sonification engine
   const stageRef = useRef<HTMLDivElement>(null);
 
   const [stops, setStops] = useState<Place[]>([]); // start empty
@@ -89,6 +91,7 @@ export function EarthApp() {
   const [preview, setPreview] = useState<Place | null>(null); // a clicked map area that is not in the mixtape
   const [playing, setPlaying] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  const [playToken, setPlayToken] = useState(0); // bumps whenever a song (re)starts from the top
   const [volume, setVolume] = useState(0.75);
   const [year, setYear] = useState(2019);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -150,6 +153,13 @@ export function EarthApp() {
     setPreview(null);
     setCurrent(i);
     setElapsed(0);
+    setPlayToken((k) => k + 1);
+    setPlaying(true);
+  }, []);
+  const playPreview = useCallback((place: Place) => {
+    setPreview(place);
+    setElapsed(0);
+    setPlayToken((k) => k + 1);
     setPlaying(true);
   }, []);
   // Move to stop i: fly there from the current stop (plane + quiet gap), or start directly if nothing is playing.
@@ -170,7 +180,11 @@ export function EarthApp() {
     goTo(preview && current >= 0 ? current : (current + 1) % stops.length);
   }, [goTo, current, stops.length, preview]);
   const prev = useCallback(() => {
-    if (elapsed > 3 || !stops.length) return setElapsed(0);
+    if (elapsed > 3 || !stops.length) {
+      setElapsed(0);
+      setPlayToken((k) => k + 1);
+      return;
+    }
     goTo(preview && current >= 0 ? current : (current - 1 + stops.length) % stops.length);
   }, [elapsed, goTo, current, stops.length, preview]);
   const togglePlay = useCallback(() => {
@@ -202,6 +216,32 @@ export function EarthApp() {
     };
   }, [flightKey, playStop]);
 
+  // Drive the sonification engine from the player state. A new playToken restarts the song from the top;
+  // otherwise play/pause just resumes or pauses the same clip clock. Flights are silent (the quiet gap between songs).
+  const audioKey = nowPlaying && !flight ? `${nowPlaying.name}#${playToken}` : null;
+  const audioState = useRef({ key: null as string | null, place: nowPlaying, elapsed });
+  useEffect(() => {
+    audioState.current.place = nowPlaying;
+    audioState.current.elapsed = elapsed;
+  });
+  useEffect(() => {
+    const a = audioState.current;
+    if (!audioKey || !playing || !a.place) {
+      jb.pause();
+      return;
+    }
+    if (a.key === audioKey) {
+      jb.resume();
+      return;
+    }
+    a.key = audioKey;
+    const { lat, lon } = xyToLatLon(a.place.x, a.place.y);
+    void jb.play({ lat, lon, surface: a.place.surface }, a.elapsed);
+  }, [audioKey, playing, jb]);
+  useEffect(() => {
+    jb.setVolume(volume);
+  }, [volume, jb]);
+
   const removeStop = useCallback(
     (i: number) => {
       const name = stops[i]?.name;
@@ -226,11 +266,7 @@ export function EarthApp() {
     }
     const i = stops.findIndex((st) => st.name === place.name);
     if (i >= 0) goTo(i);
-    else {
-      setPreview(place);
-      setElapsed(0);
-      setPlaying(true);
-    }
+    else playPreview(place);
   };
 
   const addPlace = useCallback(
@@ -312,12 +348,8 @@ export function EarthApp() {
     const place = { name: hit.name, layer: layerFor(surface, hit.name, LAND_SHORT), x, y, surface };
     const i = stops.findIndex((st) => st.name === place.name);
     if (i >= 0) playStop(i);
-    else {
-      setPreview(place);
-      setElapsed(0);
-      setPlaying(true);
-    }
-  }, [query, stops, playStop]);
+    else playPreview(place);
+  }, [query, stops, playStop, playPreview]);
 
   // Keyboard map (matches the key hints in the Figma labels).
   useEffect(() => {
@@ -389,7 +421,7 @@ export function EarthApp() {
   };
 
   return (
-    <div className={s.viewport}>
+    <div className={s.viewport} onPointerDownCapture={() => void jb.ensure()} onKeyDownCapture={() => void jb.ensure()}>
       <div ref={stageRef} className={s.scaler} style={{ width: W * scale, height: H * scale }}>
         <div style={{ transform: `scale(${scale})`, transformOrigin: "0 0", width: W, height: H }}>
           <Stage>
