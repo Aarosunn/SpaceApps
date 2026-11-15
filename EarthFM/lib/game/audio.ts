@@ -8,6 +8,7 @@
 import type { Round, Timbre } from "./rounds";
 import core from "@/lib/sonify/sonify-core.js";
 import Engine from "@/lib/sonify/jukebox-engine.js";
+import { getPref } from "@/lib/prefs";
 
 const BASE = 261.63; // C4
 const BASE_MIDI = 60;
@@ -49,6 +50,7 @@ export function audio() {
     await Tone.start();
     const engine: Eng = Engine.createEngine(Tone, core, core.DEFAULT_MAPPING);
     engine.start(Tone.now());
+    Tone.getDestination().chain(...(getPref("earthfm-mono") === "1" ? [new Tone.Mono()] : [])); // the Mono audio setting from the globe
     engine.setMaster(volume * 0.65, Tone.now());
     return { Tone, engine };
   })();

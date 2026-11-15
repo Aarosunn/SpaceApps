@@ -9,6 +9,8 @@ import { WordCaption } from "@/components/app/WordCaption";
 import { ROUNDS, type Round } from "@/lib/game/rounds";
 import { audio, contourFor, earcon, playContour, stopAll, type Contour } from "@/lib/game/audio";
 import { ContourView } from "./ContourView";
+import { speak, stopSpeaking } from "@/lib/speech";
+import { getPref } from "@/lib/prefs";
 import s from "./Game.module.css";
 
 const W = 1440, H = 900;
@@ -49,6 +51,22 @@ export function GameApp() {
   const [results, setResults] = useState<Result[]>([]);
   const [frame, setFrame] = useState(0);
   const [caption, setCaption] = useState("Put your headphones on. Each round: listen, then guess.");
+  const [seeIt, setSeeIt] = useState(false); // draw the mystery sound as a line, for players who cannot hear it
+  // The voice setting from the globe. It speaks between the sounds, never over them (the sounds are the question).
+  const [voiceOn, setVoiceOn] = useState(false);
+  const voice = useRef(false);
+  useEffect(() => {
+    const load = () => {
+      voice.current = getPref("earthfm-voice") !== "0";
+      setVoiceOn(voice.current);
+    };
+    load();
+    return stopSpeaking;
+  }, []);
+  const tell = (text: string, say = text) => {
+    setCaption(text);
+    if (voice.current) speak(say);
+  };
   const shownAt = useRef(0);
   const replays = useRef(0);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -68,6 +86,7 @@ export function GameApp() {
   const playSequence = useCallback((idxs: number[], after?: () => void) => {
     clearTimers();
     stopAll();
+    stopSpeaking(); // the voice never talks over a sound
     let t = 0;
     idxs.forEach((i) => {
       const st = steps[i];
@@ -90,7 +109,10 @@ export function GameApp() {
     setCaption(round.learn.text);
     playSequence(steps.map((_, i) => i), () => {
       setPhase("choose");
-      setCaption(`${round.question} Press 1 to 4, or Space to hear the mystery again.`);
+      tell(
+        `${round.question} Press 1 to 4, or Space to hear the mystery again.`,
+        `${round.question} The reference was ${round.reference.label}. ${round.options.map((o, i) => `${i + 1}: ${o.label}`).join(". ")}. Press 1 to 4, or Space to hear the mystery again.`,
+      );
       shownAt.current = performance.now();
     });
   };
@@ -112,7 +134,7 @@ export function GameApp() {
     replays.current = 0;
     setFrame(0);
     setPhase("reveal");
-    setCaption(`${correct ? "Correct!" : `Not quite. It was ${round.options[round.answer].label}.`} ${round.takeaway}`);
+    tell(`${correct ? "Correct!" : `Not quite. It was ${round.options[round.answer].label}.`} ${round.takeaway}`);
   }, [phase, round]);
 
   const nextRound = () => {
@@ -121,10 +143,10 @@ export function GameApp() {
     if (ri + 1 < ROUNDS.length) {
       setRi(ri + 1);
       setPhase("card");
-      setCaption(ROUNDS[ri + 1].topic);
+      tell(ROUNDS[ri + 1].topic, `${ROUNDS[ri + 1].topic} ${ROUNDS[ri + 1].learn.text}`);
     } else {
       setPhase("end");
-      setCaption("That's the set. See how your ear did.");
+      tell("That's the set. See how your ear did.");
     }
   };
 
@@ -133,12 +155,17 @@ export function GameApp() {
     setResults([]);
     setChoice(null);
     setPhase("card");
-    setCaption(ROUNDS[0].topic);
+    tell(ROUNDS[0].topic, `${ROUNDS[0].topic} ${ROUNDS[0].learn.text}`);
   };
 
   // Reveal: step through the NASA frames (sea level, Arctic) once, ending on the latest.
   useEffect(() => {
     if (phase !== "reveal" || !round.reveal.frames.length) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      const last = () => setFrame(round.reveal.frames.length - 1); // no slideshow: show the latest picture at once
+      last();
+      return;
+    }
     const id = setInterval(() => setFrame((f) => (f + 1 < round.reveal.frames.length ? f + 1 : f)), 900);
     return () => clearInterval(id);
   }, [phase, round]);
@@ -165,7 +192,7 @@ export function GameApp() {
     if (phase !== "start") return startRound();
     audio(); // unlock audio on this tap
     setPhase("card");
-    setCaption(round.topic);
+    tell(round.topic, `${round.topic} ${round.learn.text}`);
   };
 
   // Keyboard: 1-4 answer, Space replays the mystery, Enter continues.
@@ -210,7 +237,7 @@ export function GameApp() {
             </ol>
             <p className={s.score} aria-live="polite">Score {score}/{ROUNDS.length}</p>
 
-            <section className={s.card} aria-live="polite">
+            <section className={s.card} aria-label="Game">
               {phase === "start" && (
                 <div className={s.center}>
                   <p className={s.kicker}>Hear NASA Earth data</p>
@@ -252,12 +279,13 @@ export function GameApp() {
                       playKey={playKey}
                       active={!!current && !current.hidden}
                     />
-                    <ContourView contour={steps[steps.length - 1].contour} label="Mystery" sub="?" hidden playKey={playKey} active={!!current?.hidden} />
+                    <ContourView contour={steps[steps.length - 1].contour} label="Mystery" sub="?" hidden={!seeIt} playKey={playKey} active={!!current?.hidden} />
                   </div>
                   <div className={s.replays}>
                     <button className={s.ghost} onClick={() => replay("demo0")} disabled={phase === "listen"}>How it sounds</button>
                     <button className={s.ghost} onClick={() => replay("ref")} disabled={phase === "listen"}>Replay reference</button>
                     <button className={s.ghostDark} onClick={() => replay("mystery")} disabled={phase === "listen"}>Replay mystery (Space)</button>
+                    <button className={s.ghost} aria-pressed={seeIt} onClick={() => setSeeIt(!seeIt)}>{seeIt ? "Hide" : "Show"} the mystery as a line</button>
                   </div>
                   <div className={s.options} role="group" aria-label="Answers">
                     {round.options.map((o, i) => (
@@ -337,7 +365,7 @@ export function GameApp() {
               )}
             </section>
 
-            <WordCaption text={caption} />
+            <WordCaption text={caption} spoken={voiceOn} />
           </Stage>
         </div>
       </div>

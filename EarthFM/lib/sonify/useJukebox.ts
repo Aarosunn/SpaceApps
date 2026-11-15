@@ -141,13 +141,14 @@ export function useJukebox() {
     song?: SoundRecipe; // the song now playing
     left?: boolean; // the globe was closed: nothing may start sounding after this
     volume: number;
+    mono?: boolean;
   }>({ volume: 0.75, timelines: {} });
 
   /* Each layer's timeline is fetched once and kept. */
   const timeline = useCallback((layer: LayerId) => {
     const s = st.current;
     return (s.timelines[layer] ??= fetch(asset(LAYERS[layer].file)).then((r) => {
-      if (!r.ok) throw new Error(`Could not load ${LAYERS[layer].file} (HTTP ${r.status})`);
+      if (!r.ok) throw new Error(`Could not load the ${LAYERS[layer].label.toLowerCase()} data. Check your internet connection and reload the page.`);
       return r.json();
     }));
   }, []);
@@ -162,6 +163,7 @@ export function useJukebox() {
     s.Tone = Tone;
     s.engine = Engine.createEngine(Tone, core, MAPS.area);
     s.engine!.start(Tone.now());
+    Tone.getDestination().chain(...(s.mono ? [new Tone.Mono()] : [])); // match the switch even if the game set it before
     s.engine!.setMaster(s.left ? 0 : s.volume * 0.65, Tone.now()); // silent if the page was left while this was loading
     /* The engine is used as it is. Two of the functions it calls are wrapped so the song is honest:
        a cell with no data is a rest (not the lowest note), in area mode each note sits left/right where its cell is,
@@ -208,6 +210,15 @@ export function useJukebox() {
   const resume = useCallback(() => {
     st.current.clock?.play();
   }, []);
+  // Mono: fold left and right into one channel at the very end of the chain, so panned notes reach both ears.
+  const setMono = useCallback((on: boolean) => {
+    const s = st.current;
+    s.mono = on;
+    if (!s.Tone) return; // applied when the engine starts
+    const out = s.Tone.getDestination();
+    if (on) out.chain(new s.Tone.Mono());
+    else out.chain();
+  }, []);
   const setVolume = useCallback((v: number) => {
     const s = st.current;
     s.volume = v;
@@ -231,5 +242,5 @@ export function useJukebox() {
       s.left = true;
     };
   }, []);
-  return { ensure, play, pause, resume, setVolume, recipe, time };
+  return { ensure, play, pause, resume, setVolume, setMono, recipe, time };
 }

@@ -11,11 +11,12 @@ type Props = {
   label: string;
   onClick?: () => void;
   onDragStart?: (e: React.PointerEvent) => void; // press on the dot: the parent tracks the drag
+  onKeyDown?: (e: React.KeyboardEvent) => void; // arrow keys: the keyboard way to move it
 };
 
-export function MapDot({ kind = "Playing", n, left, top, label, onClick, onDragStart }: Props) {
+export function MapDot({ kind = "Playing", n, left, top, label, onClick, onDragStart, onKeyDown }: Props) {
   return (
-    <button className={s.hit} style={{ left, top, touchAction: "none", cursor: onDragStart ? "grab" : undefined }} aria-label={label} onClick={onClick} onPointerDown={onDragStart}>
+    <button className={s.hit} style={{ left, top, touchAction: "none", cursor: onDragStart ? "grab" : undefined }} aria-label={label} onClick={onClick} onPointerDown={onDragStart} onKeyDown={onKeyDown}>
       <span className={`${s.dot} ${kind === "Playing" ? s.playing : s.queued}`}>{n}</span>
     </button>
   );

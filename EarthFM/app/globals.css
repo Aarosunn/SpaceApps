@@ -62,9 +62,11 @@ img {
   display: block;
 }
 
+/* Dark ring with a lime edge: the dark shows on the pale panels and lime buttons, the lime shows on the dark map. */
 :focus-visible {
-  outline: 3px solid var(--lime);
+  outline: 3px solid var(--ink);
   outline-offset: 2px;
+  box-shadow: 0 0 0 2px var(--lime);
 }
 
 .sr-only {
@@ -76,4 +78,9 @@ img {
   clip: rect(0 0 0 0);
   white-space: nowrap;
   border: 0;
+}
+
+/* "More contrast" system setting: solid panels instead of see-through ones, and dark secondary text. */
+@media (prefers-contrast: more) {
+  :root { --paper-80: #f4f1e8; --paper-96: #f4f1e8; --white-80: #fff; --white-85: #fff; --lime-80: #d8f07a; --ink-80: #17201a; --muted: #17201a; }
 }

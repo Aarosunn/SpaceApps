@@ -6,8 +6,9 @@ import s from "./WordCaption.module.css";
 
 const WORD_MS = 110;
 
-/* Live caption that types itself in word by word (Figma 28:176 look). Screen readers get the full sentence once. */
-export function WordCaption({ text }: { text: string }) {
+/* Live caption that types itself in word by word (Figma 28:176 look). Screen readers get the full sentence once.
+   `spoken`: the app's own voice is reading this text, so the screen reader is not asked to announce it a second time. */
+export function WordCaption({ text, spoken = false }: { text: string; spoken?: boolean }) {
   const words = text.split(" ");
   const [shown, setShown] = useState({ text, n: 0 });
   const n = shown.text === text ? shown.n : 0; // new text restarts the reveal
@@ -34,7 +35,7 @@ export function WordCaption({ text }: { text: string }) {
           </span>
         ))}
       </p>
-      <span className="sr-only" aria-live="polite">{text}</span>
+      <span className="sr-only" aria-live={spoken ? "off" : "polite"}>{text}</span>
     </div>
   );
 }

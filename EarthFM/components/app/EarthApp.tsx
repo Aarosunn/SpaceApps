@@ -13,6 +13,8 @@ import { SharePopover } from "@/components/mixtape-shared/SharePopover";
 import { ShowControlsPill } from "@/components/controls-hidden/ShowControlsPill";
 import { HalfScrim } from "@/components/controls-hidden/Caption";
 import { WordCaption } from "./WordCaption";
+import { speak, stopSpeaking } from "@/lib/speech";
+import { getPref, setPref } from "@/lib/prefs";
 import { ShowPlaylistTab } from "@/components/playlist-hidden/ShowPlaylistTab";
 import { asset } from "@/components/asset";
 import { findArea, latLonToXy, regionName, surfaceOf, xyToLatLon, type Surface } from "@/lib/geo";
@@ -28,7 +30,7 @@ const TRACK_SECONDS = Math.round(TIMELINE_SECONDS); // one pass of the SVS 3912 
 const MAX_STOPS = 7;
 const FLIGHT_MS = 2600; // plane flight between songs
 const LANDING_GAP_MS = 700; // quiet beat after landing, before the next song starts
-const IDLE_CAPTION = "Click the map to add a place, click a place to play it, drag it to move it.";
+const IDLE_CAPTION = "To add a place, click the map, or type its name in the search box and press Enter.";
 
 type Place = { name: string; x: number; y: number; surface: Surface };
 
@@ -88,6 +90,9 @@ export function EarthApp() {
   const [volume, setVolume] = useState(0.75);
   const [layer, setLayer] = useState<LayerId>("sst"); // which NASA data layer every place plays
   const [captionsOn, setCaptionsOn] = useState(true); // settings: show the caption at the bottom left
+  const [voiceOn, setVoiceOn] = useState(true); // settings: read the caption aloud (text to speech)
+  const [speaking, setSpeaking] = useState(false); // the voice is talking: the music is turned down meanwhile
+  const [mono, setMono] = useState(false); // settings: play both ears the same (for one-sided hearing)
   const [sonMode, setSonMode] = useState<SonMode>("area"); // "area": sweep the picture; "time": follow its average through the dates
   const [menuOpen, setMenuOpen] = useState(false);
   const [controlsHidden, setControlsHidden] = useState(false);
@@ -101,6 +106,20 @@ export function EarthApp() {
   const [how, setHow] = useState<Place | null>(null);
   const [howOpen, setHowOpen] = useState(false);
   const [recipe, setRecipe] = useState<{ key: string; data: SoundRecipe } | null>(null);
+  // The voice and mono choices are remembered (and shared with the game).
+  useEffect(() => {
+    const load = () => {
+      if (getPref("earthfm-voice") === "0") setVoiceOn(false);
+      if (getPref("earthfm-mono") === "1") setMono(true);
+    };
+    load();
+  }, []);
+  // Closing the settings menu removes the focused button: put keyboard focus back on the menu button.
+  const menuWasOpen = useRef(false);
+  useEffect(() => {
+    if (menuWasOpen.current && !menuOpen && document.activeElement === document.body) document.querySelector<HTMLElement>('[aria-label^="Open menu"]')?.focus();
+    menuWasOpen.current = menuOpen;
+  }, [menuOpen]);
   // Plane flight between two songs: the only time the plane is on screen.
   type Flight = { from: Place; to: Place; toIdx: number; t: number };
   const [flight, setFlight] = useState<Flight | null>(null);
@@ -157,7 +176,7 @@ export function EarthApp() {
         return;
       }
       setStops((list) => list.map((st, j) => (j === i ? place : st)));
-      setNotice(`Moved stop ${i + 1} to ${place.name}.`);
+      setNotice(`Moved place ${i + 1} to ${place.name}.`);
       if (i === current) setPlayToken((k) => k + 1); // it is playing: carry on from the new place
     };
     window.addEventListener("pointermove", move);
@@ -219,10 +238,11 @@ export function EarthApp() {
   useEffect(() => {
     if (!flightKey) return;
     const start = performance.now();
+    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches; // no flight animation: land at once
     let raf = 0;
     let gap: ReturnType<typeof setTimeout> | undefined;
     const step = (now: number) => {
-      const t = Math.min(1, (now - start) / FLIGHT_MS);
+      const t = still ? 1 : Math.min(1, (now - start) / FLIGHT_MS);
       setFlight((f) => f && { ...f, t });
       if (t < 1) raf = requestAnimationFrame(step);
       else
@@ -261,9 +281,13 @@ export function EarthApp() {
     const { lat, lon } = xyToLatLon(a.place.x, a.place.y);
     void jb.play({ lat, lon }, layer, sonMode, a.elapsed);
   }, [audioKey, playing, jb, layer, sonMode]);
+  const { setVolume: setEngineVolume, setMono: setEngineMono } = jb; // stable; `jb` itself is a new object every render
   useEffect(() => {
-    jb.setVolume(volume);
-  }, [volume, jb]);
+    setEngineVolume(speaking ? volume * 0.3 : volume); // duck the music under the voice
+  }, [volume, speaking, setEngineVolume]);
+  useEffect(() => {
+    setEngineMono(mono);
+  }, [mono, setEngineMono]);
 
   const removeStop = useCallback(
     (i: number) => {
@@ -337,7 +361,7 @@ export function EarthApp() {
   const toggleHow = useCallback(() => {
     if (howOpen) return setHowOpen(false);
     const target = nowPlaying ?? how ?? stops[stops.length - 1] ?? null;
-    if (!target) return setNotice("Click the map to add a place.");
+    if (!target) return setNotice("Add a place first: click the map or search for one.");
     setHow(target);
     setHowOpen(true);
   }, [howOpen, nowPlaying, how, stops]);
@@ -359,7 +383,7 @@ export function EarthApp() {
   }, [playing]);
   useEffect(() => {
     if (!notice) return;
-    const id = setTimeout(() => setNotice(null), 3500);
+    const id = setTimeout(() => setNotice(null), Math.max(5000, notice.split(" ").length * 700)); // long enough to read
     return () => clearTimeout(id);
   }, [notice]);
 
@@ -406,7 +430,9 @@ export function EarthApp() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement;
-      if (t.tagName === "INPUT") {
+      // Leave browser and screen-reader shortcuts (Ctrl+P, Alt+M...) alone, and stay quiet behind the help pop-up.
+      if (e.ctrlKey || e.metaKey || e.altKey || document.querySelector('[aria-modal="true"]')) return;
+      if (t.tagName === "INPUT" && (t as HTMLInputElement).type !== "radio") {
         if (e.key === "Escape") t.blur();
         if (e.key === "Enter" && t.getAttribute("placeholder")?.startsWith("Search")) search();
         return;
@@ -422,7 +448,7 @@ export function EarthApp() {
       }
       else if (k === "backspace") { if (stops.length) removeStop(stops.length - 1); } // undo the last place added
       else if (k === "?") toggleHow();
-      else if (k === " " && t.tagName !== "BUTTON") {
+      else if (k === " " && t.tagName !== "BUTTON" && t.tagName !== "INPUT") {
         e.preventDefault();
         togglePlay();
       } else return;
@@ -456,10 +482,35 @@ export function EarthApp() {
             ? `${layerLabel} · next, flying there`
             : `${layerLabel} · then, flying there`,
   }));
-  const meta = `Mixtape · ${stops.length} stops · ${mmss(stops.length * 164)}`; // Figma: 3 stops = 8:12 (2:44 per stop incl. travel)
+  const meta = `Mixtape · ${stops.length} ${stops.length === 1 ? "place" : "places"} · ${mmss(stops.length * 164)}`; // Figma: 3 stops = 8:12 (2:44 per stop incl. travel)
   const caption =
     notice ??
     (flight ? `Flying to ${flight.to.name}…` : nowPlaying ? (song ? song.caption : `Loading ${layerLabel.toLowerCase()}…`) : IDLE_CAPTION);
+  // Text to speech: read each new message aloud once. A notice ("Added X") is read when it appears; the line under it
+  // (the song, the flight or the opening hint) is read when it changes, and is not repeated after every notice.
+  // A song line starts with the place and the data, which sighted users read in the bar above the player.
+  const songLine = !flight && nowPlaying && song ? `${nowPlaying.name}, ${layerLabel}. ${song.caption}` : null;
+  const baseLine = songLine ?? (flight ? `Flying to ${flight.to.name}` : nowPlaying ? null : IDLE_CAPTION); // null while loading
+  const said = useRef<{ notice: string | null; base: string | null }>({ notice: null, base: null });
+  useEffect(() => {
+    const s = said.current;
+    if (!voiceOn) {
+      s.notice = s.base = null;
+      return stopSpeaking();
+    }
+    const line = notice ?? baseLine;
+    if (!line || line === (notice ? s.notice : s.base)) {
+      if (!notice) s.notice = null;
+      return;
+    }
+    if (notice) s.notice = notice;
+    else {
+      s.notice = null;
+      s.base = line;
+    }
+    speak(line, () => setSpeaking(true), () => setSpeaking(false));
+  }, [notice, baseLine, voiceOn]);
+  useEffect(() => stopSpeaking, []); // leaving the page (e.g. to the game) stops the voice
   // "Place · layer · first date – last date" (the dates the song runs through)
   const span = song ? ` · ${song.dates[0]} – ${song.dates[1]}` : "";
   const nowText = flight ? `Up next: ${flight.to.name} · ${layerLabel}` : nowPlaying ? `${nowPlaying.name} · ${layerLabel}${span}` : "Now listening: nothing yet";
@@ -480,7 +531,7 @@ export function EarthApp() {
           <Stage>
             <MapLayer>
               {/* Map hit area: pin cursor + debounced area info. Dots and panels sit above it. */}
-              <div className={s.hit} onPointerMove={onMapMove} onPointerLeave={onMapLeave} onClick={onMapClick} aria-label="Map: click to add a place to the mixtape" />
+              <div className={s.hit} onPointerMove={onMapMove} onPointerLeave={onMapLeave} onClick={onMapClick} aria-hidden="true" />
               <svg className={s.routes} width={W} height={H} aria-hidden="true">
                 <defs>
                   <filter id="route-shadow" x="-5%" y="-5%" width="110%" height="110%">
@@ -500,7 +551,18 @@ export function EarthApp() {
                   kind={i === activeIdx ? "Playing" : "Queued"}
                   left={st.x - 22}
                   top={st.y - 22}
-                  label={`Stop ${i + 1}: ${st.name}, ${layerLabel}${i === activeIdx ? ", playing" : ""}`}
+                  label={`Place ${i + 1}: ${st.name}, ${layerLabel}${i === activeIdx ? ", playing" : ""}. Enter plays it, arrow keys move it.`}
+                  onKeyDown={(e) => {
+                    // keyboard version of dragging: the arrow keys move the place in small steps
+                    const d = ({ ArrowLeft: [-20, 0], ArrowRight: [20, 0], ArrowUp: [0, -20], ArrowDown: [0, 20] } as Record<string, number[]>)[e.key];
+                    if (!d || flightRef.current) return;
+                    e.preventDefault();
+                    const place = describe(Math.min(W, Math.max(0, st.x + d[0])), Math.min(H, Math.max(0, st.y + d[1])));
+                    if (stops.some((o, j) => j !== i && o.name === place.name)) return setNotice(`${place.name} is already in the mixtape.`);
+                    setStops((l) => l.map((o, j) => (j === i ? place : o)));
+                    if (place.name !== st.name) setNotice(`Moved place ${i + 1} to ${place.name}.`);
+                    if (i === current && place.name !== st.name) setPlayToken((k) => k + 1);
+                  }}
                   onClick={() => !dragged.current && goTo(i)}
                   onDragStart={(e) => startDrag(i, e)}
                 />
@@ -509,7 +571,8 @@ export function EarthApp() {
             </MapLayer>
 
             {controlsHidden ? <HalfScrim /> : <Scrim />}
-            {captionsOn && <WordCaption text={caption} />}
+            {/* Captions off still leaves the text for screen readers, unless the voice is already reading it. */}
+            {captionsOn ? <WordCaption text={caption} spoken={voiceOn} /> : !voiceOn && <span className="sr-only" aria-live="polite">{caption}</span>}
             {!controlsHidden && (
               <>
                 <NowListening text={nowText} onHide={() => setControlsHidden(true)} />
@@ -544,12 +607,16 @@ export function EarthApp() {
                 title="My mixtape"
                 meta={meta}
                 stops={mixStops}
-                emptyText="No places yet. Click the map to add one."
+                emptyText="No places yet. Click the map or search for one."
                 addDisabled={stops.length >= MAX_STOPS}
                 onHide={() => setPlaylistHidden(true)}
                 onSelect={(n) => goTo(n - 1)}
                 onRemove={(n) => removeStop(n - 1)}
-                onAdd={() => setNotice("Click the map to add a place.")}
+                onAdd={() => {
+                  // a way in without a mouse: go to the search box, where typing a name and Enter adds the place
+                  document.querySelector<HTMLInputElement>('input[placeholder^="Search"]')?.focus();
+                  setNotice("Type a place name, like Amazon or Pacific, then press Enter. Or click the map.");
+                }}
                 onShare={toggleShare}
                 shareOpen={shareOpen}
               >
@@ -566,7 +633,7 @@ export function EarthApp() {
 
             {menuOpen ? (
               <>
-                <MenuPanel onClose={() => setMenuOpen(false)} onMode={(m) => m === "play" && router.push("/play")} layer={layer} onLayer={setLayer} sonMode={sonMode} onSonMode={setSonMode} captions={captionsOn} onCaptions={setCaptionsOn} />
+                <MenuPanel onClose={() => setMenuOpen(false)} onMode={(m) => m === "play" && router.push("/play")} layer={layer} onLayer={setLayer} sonMode={sonMode} onSonMode={setSonMode} captions={captionsOn} onCaptions={setCaptionsOn} voice={voiceOn} onVoice={(on) => { setVoiceOn(on); setPref("earthfm-voice", on ? "1" : "0"); }} mono={mono} onMono={(on) => { setMono(on); setPref("earthfm-mono", on ? "1" : "0"); }} />
                 <TopLeftOpen onMenu={() => setMenuOpen(false)} query={query} onQuery={setQuery} />
               </>
             ) : (

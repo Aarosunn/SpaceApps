@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { asset } from "../asset";
 import { Icon } from "../Icon";
 import { LAYERS, LAYER_ORDER, type LayerId, type SonMode } from "@/lib/sonify/layers";
@@ -64,14 +64,29 @@ type MenuProps = {
   onSonMode?: (mode: SonMode) => void;
   captions?: boolean;
   onCaptions?: (on: boolean) => void;
+  voice?: boolean;
+  onVoice?: (on: boolean) => void;
+  mono?: boolean;
+  onMono?: (on: boolean) => void;
 };
 
-export function MenuPanel({ onClose, onMode, layer = "sst", onLayer, sonMode = "area", onSonMode, captions, onCaptions }: MenuProps) {
+export function MenuPanel({ onClose, onMode, layer = "sst", onLayer, sonMode = "area", onSonMode, captions, onCaptions, voice, onVoice, mono, onMono }: MenuProps) {
+  const [info, setInfo] = useState<"help" | "keys" | null>(null); // Help / Keyboard map text, shown in the panel
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLInputElement;
+      if (e.ctrlKey || e.metaKey || e.altKey || (t.tagName === "INPUT" && t.type !== "radio")) return;
+      const k = e.key.toLowerCase();
+      if (k === "h" || k === "k") setInfo((cur) => (cur === (k === "h" ? "help" : "keys") ? null : k === "h" ? "help" : "keys"));
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   return (
     <section className={s.panel} aria-label="Settings">
       <div className={s.header}>
         <h2 className={s.title}>Settings</h2>
-        <button className={s.close} aria-label="Close settings (Esc)" onClick={onClose}>
+        <button className={s.close} aria-label="Close settings (Esc)" onClick={onClose} autoFocus>
           <img alt="" width={20} height={20} src={a("close")} />
         </button>
       </div>
@@ -93,24 +108,32 @@ export function MenuPanel({ onClose, onMode, layer = "sst", onLayer, sonMode = "
           <Seg a="By Time" b="By Area" label="Sonification mode" initialFirst={sonMode === "time"} onPick={(time) => onSonMode?.(time ? "time" : "area")} />
         </div>
         <p className={s.label}>Accessibility</p>
-        <div className={s.tight}><Toggle label="Word descriptions (voice)" on /></div>
+        <div className={s.tight}><Toggle label="Word descriptions (voice)" on value={voice} onChange={onVoice} /></div>
         <Toggle label="Captions" on value={captions} onChange={onCaptions} />
-        <Toggle label="Mono audio" on={false} />
+        <Toggle label="Mono audio" on={false} value={mono} onChange={onMono} />
       </div>
-      <div className={`${s.group} ${s.mixGroup}`}>
-        <p className={s.label}>Mixtapes</p>
-        <button className={s.mixtapes}>
-          <span className={s.itemText}>My mixtapes (2)</span>
-          <Icon name="icon-chevron-right" size={18} />
-        </button>
-      </div>
+      {info ? (
+        <p role="status" style={{ margin: 0, font: "400 13px/1.45 var(--sans)", color: "var(--ink)", whiteSpace: "normal" }}>
+          {info === "help"
+            ? "To add a place, click the map, or type its name in the search box and press Enter. Its NASA data plays as a melody: higher notes mean higher values. The caption at the bottom left, and the voice, say what the sound means. Press ? to see how the sound is made."
+            : "M: menu. Space: play or pause. N: next place. ?: how the sound is made. Backspace: remove the last place. Arrow keys on a place: move it. B: hide the controls. P: hide the mixtape. H: help. K: this list. Esc: close."}
+        </p>
+      ) : (
+        <div className={`${s.group} ${s.mixGroup}`}>
+          <p className={s.label}>Mixtapes</p>
+          <button className={s.mixtapes}>
+            <span className={s.itemText}>My mixtapes (2)</span>
+            <Icon name="icon-chevron-right" size={18} />
+          </button>
+        </div>
+      )}
       <div className={s.footer}>
-        <button className={s.foot}>
+        <button className={s.foot} aria-expanded={info === "help"} onClick={() => setInfo(info === "help" ? null : "help")}>
           <img alt="" width={16} height={16} src={a("help")} />
           <span className={s.footText}>Help</span>
           <kbd className={s.key}>H</kbd>
         </button>
-        <button className={s.foot}>
+        <button className={s.foot} aria-expanded={info === "keys"} onClick={() => setInfo(info === "keys" ? null : "keys")}>
           <img alt="" width={16} height={16} src={a("kbd")} />
           <span className={s.footText}>Keyboard map</span>
           <kbd className={s.key}>K</kbd>
@@ -129,7 +152,7 @@ export function TopLeftOpen({ onMenu, query, onQuery }: { onMenu?: () => void; q
       </button>
       <div className={s.search} role="search">
         {onQuery ? (
-          <input className={s.searchText} style={{ border: 0, outline: 0, background: "transparent", padding: 0 }} placeholder="Search tracks or places" aria-label="Search tracks or places" value={query ?? ""} onChange={(e) => onQuery(e.target.value)} />
+          <input className={s.searchText} style={{ border: 0, outline: 0, boxShadow: "none", background: "transparent", padding: 0 }} placeholder="Search tracks or places" aria-label="Search tracks or places" value={query ?? ""} onChange={(e) => onQuery(e.target.value)} />
         ) : (
           <p className={s.searchText}>Search tracks or places</p>
         )}

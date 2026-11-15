@@ -136,3 +136,9 @@
 
 .pillShow { display: flex; gap: 10px; align-items: center; }
 .slider { cursor: pointer; }
+
+@media (forced-colors: active) {
+  .waveBar, .fill { background: CanvasText; }
+  .waveNow { background: Highlight; }
+  .waveAhead, .track { background: GrayText; }
+}

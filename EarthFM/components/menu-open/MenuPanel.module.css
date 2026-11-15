@@ -1,7 +1,7 @@
 .panel{position:absolute;left:24px;top:80px;width:352px;box-sizing:border-box;display:flex;flex-direction:column;gap:12px;padding:16px 20px;border-radius:24px;background:var(--paper-80);box-shadow:0 10px 30px rgba(13,20,15,.25);overflow:hidden}
 .header{margin-bottom:1px;display:flex;align-items:center;justify-content:space-between}
 .title{margin:0;font:600 22px/normal var(--sans);color:var(--ink)}
-.close{display:flex;padding:0;background:none;border:0;cursor:pointer}
+.close{display:flex;padding:8px;margin:-8px;background:none;border:0;cursor:pointer;border-radius:999px}
 .group{display:flex;flex-direction:column;gap:6px}
 .access{display:flex;flex-direction:column;gap:4px}
 .label{margin:0;font:500 12px/normal var(--mono);letter-spacing:.72px;text-transform:uppercase;color:var(--muted)}
@@ -43,3 +43,6 @@
 .search{width:244.8px;height:48px;box-sizing:border-box;display:flex;gap:9px;align-items:center;padding:12.6px 14.4px;border-radius:10.8px;background:var(--white-80);border:.9px solid var(--line);overflow:hidden}
 .searchText{margin:0;flex:1 0 0;min-width:1px;font:400 14.4px/normal var(--sans);color:var(--muted)}
 .nowFix.nowFix{top:722px;padding:10px 14px}
+
+.search:focus-within{outline: 3px solid var(--ink); outline-offset: 2px; box-shadow: 0 0 0 2px var(--lime);}
+@media (forced-colors: active) { .radioOn::after { background: CanvasText; } .segOn { outline: 2px solid Highlight; outline-offset: -2px; } }

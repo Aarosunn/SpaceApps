@@ -46,7 +46,7 @@ export function SoundPlayer({ time = "0:57 / 1:15", volume = 0.75, playing = tru
           <button className={`${s.round} ${s.outline}`} aria-label="Previous song" onClick={onPrev}>
             <Icon name="icon-prev" size={18} />
           </button>
-          <button className={`${s.round} ${s.solid}`} aria-label={playing ? "Pause (Space)" : "Play (Space)"} aria-pressed={playing} onClick={onPlayPause}>
+          <button className={`${s.round} ${s.solid}`} aria-label={playing ? "Pause (Space)" : "Play (Space)"} onClick={onPlayPause}>
             <Icon name={playing ? "icon-pause" : "icon-play"} size={24} />
           </button>
           <button className={`${s.round} ${s.outline}`} aria-label="Skip to next (N)" onClick={onNext}>
@@ -86,7 +86,12 @@ export function SoundPlayer({ time = "0:57 / 1:15", volume = 0.75, playing = tru
         <div className={s.volume}>
           <p className={s.volumeLabel}>VOLUME</p>
           <button className={s.volBtn} aria-label="Volume down" onClick={() => onVolume?.(Math.max(0, +(volume - 0.1).toFixed(2)))}>−</button>
-          <div className={s.slider} onClick={setFromClick} role="slider" aria-label="Volume" aria-valuenow={Math.round(volume * 100)} aria-valuemin={0} aria-valuemax={100}>
+          <div className={s.slider} onClick={setFromClick} role="slider" aria-label="Volume" tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+              e.preventDefault();
+              onVolume?.(Math.max(0, Math.min(1, +(volume + (e.key === "ArrowRight" ? 0.1 : -0.1)).toFixed(2))));
+            }} aria-valuenow={Math.round(volume * 100)} aria-valuemin={0} aria-valuemax={100}>
             <div className={s.track} />
             <div className={s.fill} style={{ width: pct }} />
             <img className={s.thumb} style={{ left: `calc(${pct} - 6px)` }} alt="" src={asset("/figma/volume-thumb.svg")} />

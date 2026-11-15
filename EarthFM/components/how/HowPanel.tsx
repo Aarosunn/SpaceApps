@@ -23,13 +23,18 @@ const CW = 352, CELL = CW / VIEW_COLS, CH = CELL * VIEW_ROWS;
 export function HowPanel({ placeName, recipe, live, getTime, onClose }: Props) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const [help, setHelp] = useState(false);
+  const helpBtn = useRef<HTMLButtonElement>(null);
 
   // Close the pop-up with Escape.
   useEffect(() => {
     if (!help) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setHelp(false);
+    const btn = helpBtn.current;
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      btn?.focus(); // the pop-up closed: keyboard focus goes back to the "?" that opened it
+    };
   }, [help]);
 
   useEffect(() => {
@@ -65,14 +70,14 @@ export function HowPanel({ placeName, recipe, live, getTime, onClose }: Props) {
       g.lineWidth = 1;
       g.textAlign = "center";
       g.textBaseline = "middle";
-      g.font = "500 10px ui-monospace, SFMono-Regular, monospace";
+      g.font = "500 11px ui-monospace, SFMono-Regular, monospace";
       for (let rr = 0; rr < VIEW_ROWS; rr++)
         for (let cc = 0; cc < VIEW_COLS; cc++) {
           const x = cc * CELL, y = rr * CELL, v = f.grid[(r0 + rr) * cols + (c0 + cc)];
           g.strokeStyle = "rgba(244,241,232,0.3)";
           g.strokeRect(x + 0.5, y + 0.5, CELL, CELL);
           if (v > 0.02 && r.layer.numbers) {
-            g.fillStyle = "rgba(23,32,26,0.6)";
+            g.fillStyle = "rgba(23,32,26,0.85)";
             g.fillRect(x + 4, y + CELL / 2 - 8, CELL - 8, 16);
             g.fillStyle = "#f4f1e8";
             g.fillText(short(v), x + CELL / 2, y + CELL / 2 + 0.5);
@@ -108,7 +113,7 @@ export function HowPanel({ placeName, recipe, live, getTime, onClose }: Props) {
             <p className={s.kicker}>HOW THIS SOUND IS MADE{r ? ` · ${r.layer.label.toUpperCase()}` : ""}</p>
             <p className={s.title}>{placeName}</p>
           </div>
-          <button className={s.round} onClick={() => setHelp(true)} aria-haspopup="dialog" aria-label="Explain exactly how the music is generated" title="How does this work?">?</button>
+          <button ref={helpBtn} className={s.round} onClick={() => setHelp(true)} aria-haspopup="dialog" aria-label="Explain exactly how the music is generated" title="How does this work?">?</button>
           <button className={s.round} onClick={onClose} aria-label="Close this panel" title="Close">×</button>
         </div>
         <canvas
@@ -137,7 +142,7 @@ export function HowPanel({ placeName, recipe, live, getTime, onClose }: Props) {
 
       {help && r && (
         <div className={s.backdrop} onClick={() => setHelp(false)}>
-          <div className={s.dialog} role="dialog" aria-modal="true" aria-labelledby="how-title" onClick={(e) => e.stopPropagation()}>
+          <div className={s.dialog} role="dialog" aria-modal="true" aria-labelledby="how-title" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => { if (e.key === "Tab") e.preventDefault(); /* Close is the only control: keep focus on it */ }}>
             <div className={s.head}>
               <p id="how-title" className={s.dialogTitle}>How the music is made · {r.layer.label}</p>
               <button className={s.round} onClick={() => setHelp(false)} aria-label="Close" autoFocus>×</button>
