@@ -105,8 +105,8 @@
   color: var(--lime);
   flex-shrink: 0;
 }
-.slider { flex: 1 0 0; min-width: 1px; height: 20px; position: relative; overflow: hidden; }
-.track { position: absolute; left: 0; top: 8px; height: 4px; width: 308px; border-radius: 2px; background: var(--sand); }
+.slider { flex: 1 0 0; min-width: 1px; height: 20px; position: relative; overflow: visible; /* thumb may overhang the ends at 0% / 100% */ }
+.track { position: absolute; left: 0; top: 8px; height: 4px; width: 100%; border-radius: 2px; background: var(--sand); }
 .fill { position: absolute; left: 0; top: 8px; height: 4px; border-radius: 2px; background: var(--ink); }
 .thumb { position: absolute; top: 4px; width: 12px; height: 12px; }
 

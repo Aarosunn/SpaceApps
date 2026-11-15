@@ -32,11 +32,11 @@ type PlayerProps = {
 };
 
 export function SoundPlayer({ time = "0:57 / 1:15", volume = 0.75, playing = true, progress, onPlayPause, onPrev, onNext, onVolume }: PlayerProps) {
-  const fill = Math.round(308 * volume);
+  const pct = `${Math.max(0, Math.min(1, volume)) * 100}%`; // track spans the slider box, so 100% lands on its right end
   const head = progress === undefined ? PLAYHEAD : Math.min(WAVE.length - 1, Math.floor(progress * WAVE.length));
   const setFromClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
-    onVolume?.(Math.max(0, Math.min(1, (e.clientX - r.left) / (308 * (r.width / e.currentTarget.offsetWidth)))));
+    onVolume?.(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)));
   };
   return (
     <div className={s.player} role="region" aria-label="Sound player">
@@ -67,8 +67,8 @@ export function SoundPlayer({ time = "0:57 / 1:15", volume = 0.75, playing = tru
           <button className={s.volBtn} aria-label="Volume down" onClick={() => onVolume?.(Math.max(0, +(volume - 0.1).toFixed(2)))}>−</button>
           <div className={s.slider} onClick={setFromClick} role="slider" aria-label="Volume" aria-valuenow={Math.round(volume * 100)} aria-valuemin={0} aria-valuemax={100}>
             <div className={s.track} />
-            <div className={s.fill} style={{ width: fill }} />
-            <img className={s.thumb} style={{ left: fill - 6 }} alt="" src={asset("/figma/volume-thumb.svg")} />
+            <div className={s.fill} style={{ width: pct }} />
+            <img className={s.thumb} style={{ left: `calc(${pct} - 6px)` }} alt="" src={asset("/figma/volume-thumb.svg")} />
           </div>
           <button className={s.volBtn} aria-label="Volume up" onClick={() => onVolume?.(Math.min(1, +(volume + 0.1).toFixed(2)))}>+</button>
         </div>
