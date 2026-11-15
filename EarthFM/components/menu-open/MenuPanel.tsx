@@ -43,7 +43,7 @@ function DataItem({ name, on, onPick }: { name: string; on: boolean; onPick: () 
   return (
     <label className={s.item}>
       <input type="radio" name="data-layer" checked={on} onChange={onPick} className={s.cb} />
-      {on ? <img alt="" width={18} height={18} src={a("check")} /> : <span className={s.box} />}
+      <span className={`${s.radio} ${on ? s.radioOn : ""}`} aria-hidden="true" />
       <span className={on ? s.itemBold : s.itemText}>{name}</span>
     </label>
   );

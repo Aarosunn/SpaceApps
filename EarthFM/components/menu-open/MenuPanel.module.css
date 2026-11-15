@@ -10,6 +10,11 @@
 .cb{position:absolute;opacity:0;width:18px;height:18px;margin:0;left:12px}
 .box{width:18px;height:18px;box-sizing:border-box;border:2px solid var(--ink);border-radius:4px;flex-shrink:0}
 .item img{flex-shrink:0}
+/* radio bubble for the one-at-a-time data list: a ring, with a filled dot when chosen */
+.radio{width:18px;height:18px;box-sizing:border-box;border:2px solid var(--ink);border-radius:999px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.radioOn{background:var(--lime)}
+.radioOn::after{content:"";width:8px;height:8px;border-radius:999px;background:var(--ink)}
+.cb:focus-visible + .radio{outline:2px solid var(--ink);outline-offset:2px}
 .itemText{font:500 15px/normal var(--sans);color:var(--ink);white-space:nowrap}
 .itemBold{font:600 15px/normal var(--sans);color:var(--ink);white-space:nowrap}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
