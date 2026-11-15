@@ -2,16 +2,14 @@
   width: 100vw;
   height: 100vh;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
+  overflow: auto; /* below the smallest scale the page scrolls, so browser zoom makes things bigger */
   background: #0d140f;
 }
 .viewport,
 .viewport * {
   cursor: url("/figma/pin-cursor.svg") 15 9, pointer !important;
 }
-.scaler { position: relative; flex-shrink: 0; }
+.scaler { position: relative; flex-shrink: 0; margin: auto; }
 .dim { position: absolute; inset: 0; background: rgba(13, 20, 15, 0.5); }
 
 /* ---- top bar ---- */

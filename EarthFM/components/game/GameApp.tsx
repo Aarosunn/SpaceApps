@@ -28,10 +28,11 @@ function stepsFor(r: Round, withLearn: boolean): Step[] {
   return steps;
 }
 
+const MIN_SCALE = 0.7; // same floor as the globe: below it the page scrolls, so browser zoom works
 function useFitScale() {
   const [k, setK] = useState(1);
   useEffect(() => {
-    const fit = () => setK(Math.min(window.innerWidth / W, window.innerHeight / H));
+    const fit = () => setK(Math.max(MIN_SCALE, Math.min(window.innerWidth / W, window.innerHeight / H)));
     fit();
     window.addEventListener("resize", fit);
     return () => window.removeEventListener("resize", fit);

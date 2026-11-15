@@ -63,11 +63,13 @@ function useMapSampler() {
   }, []);
 }
 
-/* Fit the fixed 1440x900 artboard into the window. */
+/* Fit the fixed 1440x900 artboard into the window, but never shrink it below MIN_SCALE: past that the page scrolls.
+   Without the floor, browser zoom did nothing (zooming in shrank the artboard by the same amount). */
+const MIN_SCALE = 0.7;
 function useFitScale() {
   const [k, setK] = useState(1);
   useEffect(() => {
-    const fit = () => setK(Math.min(window.innerWidth / W, window.innerHeight / H));
+    const fit = () => setK(Math.max(MIN_SCALE, Math.min(window.innerWidth / W, window.innerHeight / H)));
     fit();
     window.addEventListener("resize", fit);
     return () => window.removeEventListener("resize", fit);
