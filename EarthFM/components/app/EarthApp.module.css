@@ -7,13 +7,34 @@
   overflow: hidden;
   background: #0d140f;
 }
+/* The Figma pin (rotated -30deg) is the cursor everywhere, including over buttons and panels.
+   Hotspot = pin tip (15,9) in pin-cursor.svg. */
+.viewport,
+.viewport * {
+  cursor: url("/figma/pin-cursor.svg") 15 9, pointer !important;
+}
 .scaler {
   position: relative;
   flex-shrink: 0;
 }
-/* Map hit area: hides the system cursor; the rotated pin (PinCursor) follows the pointer instead. */
 .hit {
   position: absolute;
   inset: 0;
-  cursor: none;
+}
+/* Generated route legs, styled like the Figma legs: white round dots, 5px, ~12px apart, soft shadow. */
+.routes {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+.leg {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-dasharray: 0 12;
+  filter: url(#route-shadow);
+  transition: opacity 300ms ease;
 }

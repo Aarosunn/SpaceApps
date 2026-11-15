@@ -41,3 +41,9 @@
 .copied { background: var(--lime); border: 1.5px solid var(--ink); }
 .save { border: 1px solid var(--ink); }
 .note { font-family: var(--sans); font-weight: 500; font-size: 13px; color: var(--muted); }
+
+/* Anchored under the Share button (app). */
+.anchored { left: auto; right: 0; top: calc(100% + 8px); z-index: 5; }
+.head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.x { width: 28px; height: 28px; border-radius: 999px; display: flex; align-items: center; justify-content: center; margin: -4px -4px -4px 0; }
+.x:hover { background: var(--ink-08); }

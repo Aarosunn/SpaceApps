@@ -22,6 +22,10 @@ export function Mixtape({
   onAdd,
   onShare,
   shareOpen,
+  compact,
+  addDisabled,
+  emptyText,
+  children,
 }: {
   meta?: string;
   title?: string;
@@ -31,9 +35,13 @@ export function Mixtape({
   onAdd?: () => void;
   onShare?: () => void;
   shareOpen?: boolean;
+  compact?: boolean; // smaller stop cards (app); Figma reference screens use the full size
+  addDisabled?: boolean;
+  emptyText?: string;
+  children?: React.ReactNode; // anchored under the actions row (share popover)
 }) {
   return (
-    <section className={s.panel} aria-label="Mixtape">
+    <section className={`${s.panel} ${compact ? s.compact : ""}`} aria-label="Mixtape">
       <div className={s.titleBlock}>
         <div className={s.meta}>
           <p className={s.metaText}>{meta}</p>
@@ -46,6 +54,7 @@ export function Mixtape({
           <BleedAsset style={{ position: "relative", width: 16, height: 16, flexShrink: 0 }} inset="-10.46% -16.8% -22.92% -16.67%" src={asset("/figma/icon-edit.svg")} />
         </div>
       </div>
+      {stops.length === 0 && emptyText && <p className={s.empty}>{emptyText}</p>}
       {stops.map((st) => (
         <button key={st.n} className={`${s.stop} ${st.active ? s.stopActive : s.stopIdle}`} aria-current={st.active || undefined} onClick={() => onSelect?.(st.n)}>
           <Icon name="icon-drag" size={16} />
@@ -57,17 +66,20 @@ export function Mixtape({
           {st.active && <Icon name="icon-chevron-right" size={18} />}
         </button>
       ))}
+      <div className={s.actionsWrap}>
       <div className={s.actions}>
-        <button className={s.add} onClick={onAdd}>
+        <button className={s.add} onClick={onAdd} disabled={addDisabled}>
           <span className={s.btnInner}>
             <Icon name="icon-plus" size={18} />
             <span className={s.btnText}>Add place</span>
           </span>
         </button>
-        <button className={s.share} onClick={onShare} aria-expanded={shareOpen}>
+        <button className={s.share} onClick={onShare} aria-expanded={shareOpen} data-share-anchor>
           <Icon name="icon-share" size={18} />
           <span className={s.btnText}>Share</span>
         </button>
+      </div>
+      {children}
       </div>
     </section>
   );

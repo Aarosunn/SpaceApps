@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Stage, Scrim } from "@/components/Stage";
-import { MapLayer, RouteLegs, Plane, Boat, PinCursor, HoverCard } from "@/components/MapLayer";
+import { MapLayer, Plane, Boat, HoverCard } from "@/components/MapLayer";
 import { MapDot } from "@/components/MapDot";
 import { TopLeft } from "@/components/TopLeft";
 import { Mixtape, type Stop } from "@/components/Mixtape";
@@ -16,6 +16,7 @@ import { Caption, HalfScrim } from "@/components/controls-hidden/Caption";
 import { ShowPlaylistTab } from "@/components/playlist-hidden/ShowPlaylistTab";
 import { asset } from "@/components/asset";
 import { findArea, latLonToXy, layerFor, regionName, surfaceOf, xyToLatLon, type Surface } from "@/lib/geo";
+import { legPath, pointOnLeg } from "@/lib/route";
 import s from "./EarthApp.module.css";
 
 const W = 1440, H = 900;
@@ -23,14 +24,11 @@ const HOVER_DELAY_MS = 450; // debounce: the card only appears once the cursor r
 const TRACK_SECONDS = 75; // 1:15 per stop, as in the Figma player
 const LAND_LAYER = "Wildfires";
 const LAND_SHORT = "Fires";
+const MAX_STOPS = 7;
+const IDLE_CAPTION = "Hover the map to explore. Click a place to listen, + to add it.";
 
 type Place = { name: string; layer: string; x: number; y: number; surface: Surface };
 
-const INITIAL_STOPS: Place[] = [
-  { name: "Amazon", layer: "Fires", x: 425, y: 540, surface: "land" },
-  { name: "Central Africa", layer: "Fires", x: 782, y: 452, surface: "land" },
-  { name: "Indian Ocean", layer: "Sea heat", x: 1012, y: 632, surface: "water" },
-];
 
 const CAPTIONS: Record<string, string> = {
   Fires: "Fast crackle, heavy fire. Bass rising.",
@@ -82,11 +80,11 @@ export function EarthApp() {
   const sample = useMapSampler();
   const stageRef = useRef<HTMLDivElement>(null);
 
-  const [stops, setStops] = useState<Place[]>(INITIAL_STOPS);
-  const [current, setCurrent] = useState(0);
+  const [stops, setStops] = useState<Place[]>([]); // start empty
+  const [current, setCurrent] = useState(-1); // -1: nothing from the mixtape played yet
   const [preview, setPreview] = useState<Place | null>(null); // a clicked map area that is not in the mixtape
-  const [playing, setPlaying] = useState(true);
-  const [elapsed, setElapsed] = useState(57);
+  const [playing, setPlaying] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
   const [volume, setVolume] = useState(0.75);
   const [year, setYear] = useState(2019);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -98,12 +96,11 @@ export function EarthApp() {
   const [query, setQuery] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
 
-  // Cursor + debounced hover card
-  const [pointer, setPointer] = useState<{ x: number; y: number } | null>(null);
+  // Debounced hover card (the pin cursor itself is a CSS cursor, see EarthApp.module.css)
   const [hover, setHover] = useState<Place | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const nowPlaying: Place = preview ?? stops[current];
+  const nowPlaying: Place | null = preview ?? (current >= 0 ? stops[current] ?? null : null);
 
   const describe = useCallback(
     (x: number, y: number): Place => {
@@ -122,14 +119,12 @@ export function EarthApp() {
 
   const onMapMove = (e: React.PointerEvent) => {
     const p = toStage(e);
-    setPointer(p);
     setHover(null); // moving: no info
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => setHover(describe(p.x, p.y)), HOVER_DELAY_MS);
   };
   const onMapLeave = () => {
     if (timer.current) clearTimeout(timer.current);
-    setPointer(null);
     setHover(null);
   };
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
@@ -140,8 +135,17 @@ export function EarthApp() {
     setElapsed(0);
     setPlaying(true);
   }, []);
-  const next = useCallback(() => playStop((preview ? current : current + 1) % stops.length), [playStop, current, stops.length, preview]);
-  const prev = useCallback(() => (elapsed > 3 && !preview ? setElapsed(0) : playStop((current - 1 + stops.length) % stops.length)), [elapsed, playStop, current, stops.length, preview]);
+  const next = useCallback(() => {
+    if (!stops.length) return;
+    playStop(preview && current >= 0 ? current : (current + 1) % stops.length);
+  }, [playStop, current, stops.length, preview]);
+  const prev = useCallback(() => {
+    if (elapsed > 3 || !stops.length) return setElapsed(0);
+    playStop(preview && current >= 0 ? current : (current - 1 + stops.length) % stops.length);
+  }, [elapsed, playStop, current, stops.length, preview]);
+  const togglePlay = useCallback(() => {
+    if (nowPlaying) setPlaying((p) => !p);
+  }, [nowPlaying]);
 
   const onMapClick = (e: React.MouseEvent) => {
     const p = toStage(e);
@@ -161,6 +165,10 @@ export function EarthApp() {
         setNotice("Hover or click a place on the map, then press + to add it.");
         return;
       }
+      if (stops.length >= MAX_STOPS) {
+        setNotice(`The mixtape is full (${MAX_STOPS} places max).`);
+        return;
+      }
       if (stops.some((st) => st.name === place.name)) {
         setNotice(`${place.name} is already in the mixtape.`);
         return;
@@ -175,7 +183,12 @@ export function EarthApp() {
   // Playback clock: advances while playing; at the end of a track, fly to the next stop.
   const tick = useRef<() => void>(() => {});
   useEffect(() => {
-    tick.current = () => (elapsed + 1 >= TRACK_SECONDS ? next() : setElapsed(elapsed + 1));
+    tick.current = () => {
+      if (elapsed + 1 < TRACK_SECONDS) return setElapsed(elapsed + 1);
+      if (!preview && stops.length > 1) return next(); // fly on to the next stop
+      setPlaying(false); // a lone place or a preview just ends
+      setElapsed(0);
+    };
   });
   useEffect(() => {
     if (!playing) return;
@@ -188,8 +201,19 @@ export function EarthApp() {
     return () => clearTimeout(id);
   }, [notice]);
 
+  // Clicking anywhere outside the popover (or its Share button) closes it.
+  useEffect(() => {
+    if (!shareOpen) return;
+    const close = (e: PointerEvent) => {
+      const t = e.target as Element;
+      if (!t.closest("[data-share-popover], [data-share-anchor]")) setShareOpen(false);
+    };
+    document.addEventListener("pointerdown", close);
+    return () => document.removeEventListener("pointerdown", close);
+  }, [shareOpen]);
+
   const copyLink = async () => {
-    const url = `${window.location.origin}${window.location.pathname}?mix=fires-south`;
+    const url = `${window.location.origin}${window.location.pathname}?mix=my-mixtape`;
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);
@@ -242,12 +266,12 @@ export function EarthApp() {
       else if (k === "+" || k === "=") addPlace(hover ?? preview);
       else if (k === " " && t.tagName !== "BUTTON") {
         e.preventDefault();
-        setPlaying((p) => !p);
+        togglePlay();
       } else return;
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [next, addPlace, hover, preview, search]);
+  }, [next, addPlace, hover, preview, search, togglePlay]);
 
   // ---- derived view data
   const activeIdx = preview ? -1 : current;
@@ -266,8 +290,12 @@ export function EarthApp() {
             : `${st.layer} · then, ${travel(st)} there`,
   }));
   const meta = `Mixtape · ${stops.length} stops · ${mmss(stops.length * 164)}`; // Figma: 3 stops = 8:12 (2:44 per stop incl. travel)
-  const caption = notice ?? CAPTIONS[nowPlaying.layer] ?? CAPTIONS.Fires;
-  const defaultRoute = stops.length >= 3 && stops.slice(0, 3).every((st, i) => st.name === INITIAL_STOPS[i].name);
+  const caption = notice ?? (nowPlaying ? CAPTIONS[nowPlaying.layer] ?? CAPTIONS.Fires : IDLE_CAPTION);
+  const nowText = nowPlaying ? `Now listening: ${nowPlaying.name} ${year}` : "Now listening: nothing yet";
+  // The vehicle rides the current leg (current stop -> next) as the track plays; boat if the next stop is at sea.
+  const leg = activeIdx >= 0 && activeIdx < stops.length - 1 ? { a: stops[activeIdx], b: stops[activeIdx + 1] } : null;
+  const vehicle = leg && { ...pointOnLeg(leg.a, leg.b, Math.min(1, elapsed / TRACK_SECONDS)), boat: leg.b.surface === "water" };
+  const legOpacity = (i: number) => (activeIdx < 0 ? 0.45 : i === activeIdx ? 1 : i < activeIdx ? 0.25 : 0.45); // current leg bright, upcoming dim, played faint
 
   // Hover card sits down-right of the pin tip (Figma: tip 83.8,431.6 -> card 107,459), flipped near edges.
   const card = hover && {
@@ -283,13 +311,22 @@ export function EarthApp() {
             <MapLayer>
               {/* Map hit area: pin cursor + debounced area info. Dots and panels sit above it. */}
               <div className={s.hit} onPointerMove={onMapMove} onPointerLeave={onMapLeave} onClick={onMapClick} aria-label="Map: click a place to play it, + to add it" />
-              {defaultRoute && (
-                <>
-                  <RouteLegs />
-                  {activeIdx <= 0 ? <Plane left={594.66} top={407.74} rotate={34.71} /> : <Plane left={755} top={400} rotate={4.32} />}
-                  {activeIdx <= 1 ? <Boat left={964.76} top={557.96} /> : <Boat left={1036} top={600} />}
-                </>
-              )}
+              <svg className={s.routes} width={W} height={H} aria-hidden="true">
+                <defs>
+                  <filter id="route-shadow" x="-5%" y="-5%" width="110%" height="110%">
+                    <feDropShadow dx="0" dy="1" stdDeviation="1.5" floodOpacity="0.35" />
+                  </filter>
+                </defs>
+                {stops.slice(1).map((b, i) => (
+                  <path key={`${stops[i].name}>${b.name}`} d={legPath(stops[i], b)} className={s.leg} style={{ opacity: legOpacity(i) }} />
+                ))}
+              </svg>
+              {vehicle &&
+                (vehicle.boat ? (
+                  <Boat left={vehicle.x - 15} top={vehicle.y - 24} />
+                ) : (
+                  <Plane left={vehicle.x - 26.44} top={vehicle.y - 26.44} rotate={vehicle.heading + 45} />
+                ))}
               {stops.map((st, i) => (
                 <MapDot
                   key={st.name}
@@ -301,22 +338,21 @@ export function EarthApp() {
                   onClick={() => playStop(i)}
                 />
               ))}
-              {pointer && <PinCursor left={pointer.x - 13.5} top={pointer.y - 8.4} />}
               {hover && card && <HoverCard left={card.left} top={card.top} title={`${hover.name} · ${hover.layer} · ${year}`} hint="Click to play · + to add to mixtape" />}
             </MapLayer>
 
             {controlsHidden ? <HalfScrim /> : <Scrim />}
-            {!controlsHidden && <YearPicker layer={LAND_LAYER} year={year} onYear={setYear} />}
+            {!controlsHidden && <YearPicker layer={LAND_LAYER} year={year} onYear={setYear} arrows={false} />}
             {controlsHidden ? <Caption text={caption} /> : <LiveCaption text={caption} />}
             {!controlsHidden && (
               <>
-                <NowListening text={`Now listening: ${nowPlaying.name} ${year}`} onHide={() => setControlsHidden(true)} />
+                <NowListening text={nowText} onHide={() => setControlsHidden(true)} />
                 <SoundPlayer
                   time={`${mmss(elapsed)} / ${mmss(TRACK_SECONDS)}`}
                   progress={elapsed / TRACK_SECONDS}
                   playing={playing}
                   volume={volume}
-                  onPlayPause={() => setPlaying((p) => !p)}
+                  onPlayPause={togglePlay}
                   onPrev={prev}
                   onNext={next}
                   onVolume={setVolume}
@@ -325,9 +361,9 @@ export function EarthApp() {
             )}
             {controlsHidden && (
               <ShowControlsPill
-                title={`${nowPlaying.name} · ${year}`}
+                title={nowPlaying ? `${nowPlaying.name} · ${year}` : "Nothing playing"}
                 playing={playing}
-                onPlayPause={() => setPlaying((p) => !p)}
+                onPlayPause={togglePlay}
                 onNext={next}
                 onShow={() => setControlsHidden(false)}
               />
@@ -337,17 +373,22 @@ export function EarthApp() {
               <ShowPlaylistTab count={stops.length} onShow={() => setPlaylistHidden(false)} />
             ) : (
               <Mixtape
+                compact
+                title="My mixtape"
                 meta={meta}
                 stops={mixStops}
+                emptyText="No places yet. Hover the map, then click to listen or press + to add."
+                addDisabled={stops.length >= MAX_STOPS}
                 onHide={() => setPlaylistHidden(true)}
                 onSelect={(n) => playStop(n - 1)}
                 onAdd={() => addPlace(hover ?? preview)}
                 onShare={toggleShare}
                 shareOpen={shareOpen}
-              />
-            )}
-            {shareOpen && !playlistHidden && (
-              <SharePopover url="earthjukebox.app/fires-south" copied={copied} onCopy={copyLink} saved={saved} onSave={() => setSaved(true)} />
+              >
+                {shareOpen && (
+                  <SharePopover anchored url="earthjukebox.app/my-mixtape" copied={copied} onCopy={copyLink} saved={saved} onSave={() => setSaved(true)} onClose={() => setShareOpen(false)} />
+                )}
+              </Mixtape>
             )}
 
             {menuOpen ? (

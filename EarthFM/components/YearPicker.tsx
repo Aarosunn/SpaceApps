@@ -6,7 +6,7 @@ const HEIGHTS = [12, 14, 12, 16, 14, 18, 16, 14, 18, 20, 16, 18, 22, 20, 18, 24,
 const FIRST = 2001;
 
 /* Year picker (no background), Figma 28:126. One bar per year 2001-2025. */
-export function YearPicker({ layer = "Wildfires", year = 2019, onYear }: { layer?: string; year?: number; onYear?: (y: number) => void }) {
+export function YearPicker({ layer = "Wildfires", year = 2019, onYear, arrows = true }: { layer?: string; year?: number; onYear?: (y: number) => void; arrows?: boolean }) {
   return (
     <div className={s.picker}>
       <div className={s.timeline}>
@@ -14,8 +14,12 @@ export function YearPicker({ layer = "Wildfires", year = 2019, onYear }: { layer
           <p className={s.title}>Pick a year · {layer}</p>
           <p className={s.yearNav}>
             {year}
-            <span className={s.arrow} style={{ marginLeft: 16.8 }}>←</span>
+            {arrows && (
+              <>
+                <span className={s.arrow} style={{ marginLeft: 16.8 }}>←</span>
             <span className={s.arrow} style={{ marginLeft: 11, marginRight: 2 }}>→</span>
+              </>
+            )}
           </p>
         </div>
         <div className={s.bars} role="radiogroup" aria-label="Year">
