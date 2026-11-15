@@ -8,8 +8,9 @@ import { selfCheck as speech } from "@/lib/speech";
 import { selfCheck as voice } from "@/lib/voice";
 import { selfCheck as instruments } from "@/lib/sonify/instruments";
 import { selfCheck as gameAudio } from "@/lib/game/audio";
+import { selfCheck as mixtapes } from "@/lib/mixtapes";
 
-const CHECKS = { geo, route, speech, voice, instruments, gameAudio };
+const CHECKS = { geo, route, speech, voice, instruments, gameAudio, mixtapes };
 
 export default function SelfCheck() {
   const [lines, setLines] = useState<string[] | null>(null);

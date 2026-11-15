@@ -1,0 +1,12 @@
+.box { position: absolute; left: 388px; top: 420px; width: 320px; max-height: 280px; /* beside the "My mixtapes" button, above the player */ display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 20px; background: rgba(244, 241, 232, 0.94); box-shadow: 0 10px 30px rgba(13, 20, 15, 0.25); z-index: 4; }
+.head { display: flex; align-items: center; justify-content: space-between; }
+.title { margin: 0; font: 600 17px/normal var(--sans); color: var(--ink); }
+.empty { font: 500 14px/1.4 var(--sans); color: var(--muted); }
+.list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; }
+.row { display: flex; align-items: center; gap: 6px; padding: 4px 6px 4px 4px; border-radius: 12px; background: var(--white); border: 1px solid var(--line); }
+.load { flex: 1 0 0; min-width: 1px; display: flex; flex-direction: column; gap: 1px; padding: 6px 8px; border-radius: 9px; text-align: left; }
+.load:hover { background: rgba(216, 240, 122, 0.45); }
+.name { font: 600 14px/normal var(--sans); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sub { font: 500 12px/normal var(--sans); color: var(--muted); }
+.x { width: 28px; height: 28px; border-radius: 999px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.x:hover { background: var(--ink-08); }

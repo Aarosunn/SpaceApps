@@ -56,6 +56,10 @@ function DataItem({ name, on, onPick }: { name: string; on: boolean; onPick: () 
 }
 
 type MenuProps = {
+  mixCount?: number; // how many mixtapes are saved in this browser
+  mixesOpen?: boolean;
+  onMixes?: () => void; // open / close the "My mixtapes" list
+
   onClose?: () => void;
   onMode?: (mode: "globe" | "play") => void;
   layer?: LayerId;
@@ -70,7 +74,7 @@ type MenuProps = {
   onMono?: (on: boolean) => void;
 };
 
-export function MenuPanel({ onClose, onMode, layer = "sst", onLayer, sonMode = "area", onSonMode, captions, onCaptions, voice, onVoice, mono, onMono }: MenuProps) {
+export function MenuPanel({ onClose, onMode, layer = "sst", onLayer, sonMode = "area", onSonMode, captions, onCaptions, voice, onVoice, mono, onMono, mixCount = 0, mixesOpen, onMixes }: MenuProps) {
   const [info, setInfo] = useState<"help" | "keys" | null>(null); // Help / Keyboard map text, shown in the panel
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -121,8 +125,8 @@ export function MenuPanel({ onClose, onMode, layer = "sst", onLayer, sonMode = "
       {!info && (
         <div className={`${s.group} ${s.mixGroup}`}>
           <p className={s.label}>Mixtapes</p>
-          <button className={s.mixtapes}>
-            <span className={s.itemText}>My mixtapes (2)</span>
+          <button className={s.mixtapes} onClick={onMixes} aria-expanded={!!mixesOpen}>
+            <span className={s.itemText}>My mixtapes ({mixCount})</span>
             <Icon name="icon-chevron-right" size={18} />
           </button>
         </div>

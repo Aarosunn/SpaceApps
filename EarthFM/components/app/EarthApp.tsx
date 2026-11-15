@@ -29,6 +29,8 @@ import { MicButton } from "@/components/voice/MicButton";
 import { MapFx, LAYER_RGB } from "@/components/fx/MapFx";
 import { VOICE_WORDS } from "@/lib/sonify/instruments";
 import { LAYER_VOICE } from "@/lib/sonify/useJukebox";
+import { autoName, decodeMix, deleteMix, encodeMix, loadMixes, saveMix, type Mix } from "@/lib/mixtapes";
+import { MixList } from "@/components/mixes/MixList";
 import s from "./EarthApp.module.css";
 
 const W = 1440, H = 900;
@@ -118,7 +120,11 @@ export function EarthApp() {
   const [playlistHidden, setPlaylistHidden] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [saved, setSaved] = useState(false);
+  // Saved mixtapes (this browser) and the name of the one on screen.
+  const [mixes, setMixes] = useState<Mix[]>([]);
+  const [mixesOpen, setMixesOpen] = useState(false);
+  const [mixName, setMixName] = useState<string | null>(null); // null = not named yet (named from its places when saved)
+  const [savedSig, setSavedSig] = useState<string | null>(null); // what was last saved, to show "Saved" only while unchanged
   const [query, setQuery] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   // Keyboard exploring: a listening pin moved over the map with the arrow keys (the map has focus).
@@ -458,8 +464,62 @@ export function EarthApp() {
     return () => document.removeEventListener("pointerdown", close);
   }, [shareOpen]);
 
+  // ---- saving, loading and sharing mixtapes ----
+  const currentMix = (): Mix | null => (stops.length ? { name: mixName ?? autoName(stops), layer, stops: stops.map(({ name, x, y, surface }) => ({ name, x, y, surface })) } : null);
+  const sig = `${layer}|${stops.map((st) => `${st.name}@${Math.round(st.x)},${Math.round(st.y)}`).join(">")}`;
+  const shareUrl = () => {
+    const mix = currentMix();
+    return `${window.location.origin}${window.location.pathname}${mix ? `?mix=${encodeMix(mix)}` : ""}`;
+  };
+  const putMix = (mix: Mix, how: "loaded" | "shared") => {
+    setFlight(null);
+    setStops(mix.stops);
+    setLayer(mix.layer);
+    setDateIdx(null);
+    setMixName(mix.name);
+    setElapsed(0);
+    setMixesOpen(false);
+    setMenuOpen(false);
+    if (how === "loaded") {
+      // a click loaded it, so sound may start straight away
+      setCurrent(0);
+      setPlayToken((k) => k + 1);
+      setPlaying(true);
+      setNotice(`Loaded ${mix.name}: ${mix.stops.length} ${mix.stops.length === 1 ? "place" : "places"}.`);
+    } else {
+      // opened from a link: browsers only allow sound after a key or click, so wait on the first place
+      setCurrent(0);
+      setPlaying(false);
+      setNotice(`Shared mixtape: ${mix.name}, ${mix.stops.length} ${mix.stops.length === 1 ? "place" : "places"}. Press Space to play.`);
+    }
+  };
+  const putMixRef = useRef(putMix);
+  useEffect(() => {
+    putMixRef.current = putMix;
+  });
+  // On opening the page: read the saved list, and load a mixtape from a share link (?mix=...).
+  useEffect(() => {
+    const start = () => {
+      setMixes(loadMixes());
+      const code = new URLSearchParams(window.location.search).get("mix");
+      if (!code) return;
+      const mix = decodeMix(code);
+      if (mix) putMixRef.current(mix, "shared");
+      else setNotice("That mixtape link could not be read.");
+    };
+    start();
+  }, []);
+  const saveCurrent = () => {
+    const mix = currentMix();
+    if (!mix) return setNotice("Add a place first, then save.");
+    setMixes(saveMix(mix));
+    setMixName(mix.name);
+    setSavedSig(sig);
+    setNotice(`Saved ${mix.name} to my mixtapes.`);
+  };
+
   const copyLink = async () => {
-    const url = `${window.location.origin}${window.location.pathname}?mix=my-mixtape`;
+    const url = shareUrl();
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);
@@ -866,7 +926,7 @@ export function EarthApp() {
             ) : (
               <Mixtape
                 compact
-                title="My mixtape"
+                title={mixName ?? "My mixtape"}
                 meta={meta}
                 stops={mixStops}
                 emptyText="No places yet. Click the map or search for one."
@@ -883,7 +943,7 @@ export function EarthApp() {
                 shareOpen={shareOpen}
               >
                 {shareOpen && (
-                  <SharePopover anchored url="earthjukebox.app/my-mixtape" copied={copied} onCopy={copyLink} saved={saved} onSave={() => setSaved(true)} onClose={() => setShareOpen(false)} />
+                  <SharePopover anchored url={stops.length ? shareUrl().replace(/^https?:\/\//, "").replace(/(\?mix=.{10}).+$/, "$1…") : "Add a place to get a link"} copied={copied} onCopy={copyLink} saved={savedSig === sig && stops.length > 0} onSave={saveCurrent} onClose={() => setShareOpen(false)} />
                 )}
               </Mixtape>
             )}
@@ -894,9 +954,12 @@ export function EarthApp() {
             {!menuOpen && !howOpen && (stops.length > 0 || nowPlaying) && <HowButton onClick={toggleHow} />}
 
             {FLAGS.voiceControl && <MicButton listening={listening} onClick={toggleListening} left={341} top={24} />}
+            {menuOpen && mixesOpen && (
+              <MixList mixes={mixes} onLoad={(m) => putMix(m, "loaded")} onDelete={(name) => { setMixes(deleteMix(name)); setNotice(`Deleted ${name}.`); }} onClose={() => setMixesOpen(false)} />
+            )}
             {menuOpen ? (
               <>
-                <MenuPanel onClose={() => setMenuOpen(false)} onMode={(m) => m === "play" && router.push("/play")} layer={layer} onLayer={(l) => { setLayer(l); setDateIdx(null); /* each layer has its own dates */ }} sonMode={sonMode} onSonMode={setSonMode} captions={captionsOn} onCaptions={setCaptionsOn} voice={voiceOn} onVoice={(on) => { setVoiceOn(on); setPref("earthfm-voice", on ? "1" : "0"); }} mono={mono} onMono={(on) => { setMono(on); setPref("earthfm-mono", on ? "1" : "0"); }} />
+                <MenuPanel mixCount={mixes.length} mixesOpen={mixesOpen} onMixes={() => setMixesOpen((o) => !o)} onClose={() => { setMenuOpen(false); setMixesOpen(false); }} onMode={(m) => m === "play" && router.push("/play")} layer={layer} onLayer={(l) => { setLayer(l); setDateIdx(null); /* each layer has its own dates */ }} sonMode={sonMode} onSonMode={setSonMode} captions={captionsOn} onCaptions={setCaptionsOn} voice={voiceOn} onVoice={(on) => { setVoiceOn(on); setPref("earthfm-voice", on ? "1" : "0"); }} mono={mono} onMono={(on) => { setMono(on); setPref("earthfm-mono", on ? "1" : "0"); }} />
                 <TopLeftOpen onMenu={() => setMenuOpen(false)} query={query} onQuery={setQuery} />
               </>
             ) : (
