@@ -589,8 +589,8 @@ export function EarthApp() {
         <div style={{ transform: `scale(${scale})`, transformOrigin: "0 0", width: W, height: H }}>
           <Stage>
             <MapLayer>
-              {/* eslint-disable-next-line @next/next/no-img-element -- a static data picture, stretched to the map */}
               {picture && <div className={s.dataBack} aria-hidden="true" />}
+              {/* eslint-disable-next-line @next/next/no-img-element -- a static data picture, stretched to the map */}
               {picture && <img className={s.dataMap} alt="" src={picture} style={DATA_MAP_BOX} />}
               {/* Map hit area: pin cursor + debounced area info. Dots and panels sit above it. */}
               <div className={s.hit} onPointerMove={onMapMove} onPointerLeave={onMapLeave} onClick={onMapClick} aria-hidden="true" />
