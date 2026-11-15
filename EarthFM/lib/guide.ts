@@ -1,11 +1,8 @@
 /* Spoken guide for people who can't see the screen. Read aloud on the first visit, and any time with H. */
 
-export const INTRO =
-  "Welcome to EarthFM. It turns NASA Earth data into music, so you can hear how the planet is changing. " +
-  "Hold Shift and use the arrow keys to explore the map. I'll tell you where you are. " +
-  "Press Enter to listen to that place, and plus to add it to your mixtape. " +
-  "Left and right arrows change the year. Space plays or pauses. " +
-  "Press H any time to hear every command, or V to turn my voice off.";
+export const INTRO = "Welcome to EarthFM. Press V to turn on voice guidance, or H to hear all the commands.";
+
+export const VOICE_ON = "Voice guidance on. Hold Shift and use the arrow keys to explore the map. Press H for all commands, or V to turn me off.";
 
 export const HELP =
   "Here are all the commands. " +

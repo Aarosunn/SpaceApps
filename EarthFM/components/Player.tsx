@@ -38,6 +38,17 @@ export function SoundPlayer({ time = "0:57 / 1:15", volume = 0.75, playing = tru
     const r = e.currentTarget.getBoundingClientRect();
     onVolume?.(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)));
   };
+  // Standard slider keys: arrows nudge 5%, Page Up/Down jump 10%, Home/End go to silent/full.
+  const onSliderKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const step: Record<string, number> = { ArrowRight: 0.05, ArrowUp: 0.05, ArrowLeft: -0.05, ArrowDown: -0.05, PageUp: 0.1, PageDown: -0.1 };
+    let v: number | null = null;
+    if (e.key in step) v = volume + step[e.key];
+    else if (e.key === "Home") v = 0;
+    else if (e.key === "End") v = 1;
+    if (v === null) return;
+    e.preventDefault();
+    onVolume?.(Math.max(0, Math.min(1, +v.toFixed(2))));
+  };
   return (
     <div className={s.player} role="region" aria-label="Sound player">
       <div className={s.playback}>
@@ -65,7 +76,19 @@ export function SoundPlayer({ time = "0:57 / 1:15", volume = 0.75, playing = tru
         <div className={s.volume}>
           <p className={s.volumeLabel}>VOLUME</p>
           <button className={s.volBtn} aria-label="Volume down" onClick={() => onVolume?.(Math.max(0, +(volume - 0.1).toFixed(2)))}>−</button>
-          <div className={s.slider} onClick={setFromClick} role="slider" aria-label="Volume" aria-valuenow={Math.round(volume * 100)} aria-valuemin={0} aria-valuemax={100}>
+          <div
+            className={s.slider}
+            onClick={setFromClick}
+            onKeyDown={onSliderKey}
+            tabIndex={0}
+            role="slider"
+            aria-label="Volume"
+            aria-orientation="horizontal"
+            aria-valuenow={Math.round(volume * 100)}
+            aria-valuetext={`${Math.round(volume * 100)} percent`}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          >
             <div className={s.track} />
             <div className={s.fill} style={{ width: pct }} />
             <img className={s.thumb} style={{ left: `calc(${pct} - 6px)` }} alt="" src={asset("/figma/volume-thumb.svg")} />

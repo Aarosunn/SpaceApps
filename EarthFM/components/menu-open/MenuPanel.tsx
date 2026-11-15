@@ -4,6 +4,7 @@ import { useState } from "react";
 import { asset } from "../asset";
 import { Icon } from "../Icon";
 import { setVoiceEnabled, speakNow, useVoiceEnabled } from "@/lib/voice";
+import { setSetting, useSetting } from "@/lib/settings";
 import np from "../Player.module.css";
 import s from "./MenuPanel.module.css";
 
@@ -58,7 +59,7 @@ function VoiceToggle() {
       value={voice}
       onChange={(on) => {
         setVoiceEnabled(on);
-        speakNow(on ? "Voice descriptions on." : "Voice descriptions off.");
+        speakNow(on ? "Voice guidance on." : "Voice guidance off.");
       }}
     />
   );
@@ -78,6 +79,8 @@ function DataItem({ name, initial, bold }: { name: string; initial: boolean; bol
 
 export function MenuPanel({ onClose, onMode, onHelp }: { onClose?: () => void; onMode?: (mode: "globe" | "play") => void; onHelp?: () => void }) {
   const [genre, setGenre] = useState(GENRES[0]);
+  const captions = useSetting("captions");
+  const mono = useSetting("mono");
   return (
     <section className={s.panel} aria-label="Settings">
       <div className={s.header}>
@@ -113,8 +116,8 @@ export function MenuPanel({ onClose, onMode, onHelp }: { onClose?: () => void; o
         </div>
         <p className={s.label}>Accessibility</p>
         <div className={s.tight}><VoiceToggle /></div>
-        <Toggle label="Captions" on />
-        <Toggle label="Mono audio" on={false} />
+        <Toggle label="Captions" on value={captions} onChange={(on) => setSetting("captions", on)} />
+        <Toggle label="Mono audio" on={false} value={mono} onChange={(on) => setSetting("mono", on)} />
       </div>
       <div className={`${s.group} ${s.mixGroup}`}>
         <p className={s.label}>Mixtapes</p>

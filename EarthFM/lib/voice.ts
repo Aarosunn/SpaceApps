@@ -11,13 +11,13 @@ const listeners = new Set<() => void>();
 
 function read(): boolean {
   try {
-    return localStorage.getItem(KEY) !== "off"; // on by default, matching the menu
+    return localStorage.getItem(KEY) === "on"; // off by default; the short welcome tells people how to turn it on
   } catch {
-    return true;
+    return false;
   }
 }
 
-let enabled = typeof window === "undefined" ? true : read();
+let enabled = typeof window === "undefined" ? false : read();
 
 export function setVoiceEnabled(on: boolean) {
   enabled = on;
@@ -35,7 +35,7 @@ export function useVoiceEnabled(): boolean {
       return () => listeners.delete(l);
     },
     () => enabled,
-    () => true,
+    () => false,
   );
 }
 

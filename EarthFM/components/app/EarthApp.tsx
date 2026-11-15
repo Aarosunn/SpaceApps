@@ -15,7 +15,8 @@ import { ShowControlsPill } from "@/components/controls-hidden/ShowControlsPill"
 import { HalfScrim } from "@/components/controls-hidden/Caption";
 import { WordCaption } from "./WordCaption";
 import { isLongTalk, setVoiceEnabled, speakLong, speakNow, stopSpeaking, useSpokenCaption, useVoiceEnabled } from "@/lib/voice";
-import { HELP, INTRO } from "@/lib/guide";
+import { HELP, INTRO, VOICE_ON } from "@/lib/guide";
+import { useSetting } from "@/lib/settings";
 import { ShowPlaylistTab } from "@/components/playlist-hidden/ShowPlaylistTab";
 import { asset } from "@/components/asset";
 import { findArea, latLonToXy, layerFor, regionName, surfaceOf, xyToLatLon, type Surface } from "@/lib/geo";
@@ -359,12 +360,14 @@ export function EarthApp() {
   const voiceOn = useVoiceEnabled();
   const toggleVoice = useCallback(() => {
     setVoiceEnabled(!voiceOn);
-    speakNow(voiceOn ? "Voice descriptions off." : "Voice descriptions on.");
+    if (voiceOn) speakNow("Voice guidance off.");
+    else speakLong(VOICE_ON);
   }, [voiceOn]);
 
   const spokenHover = useRef<string | null>(null);
   const hintSpoken = useRef(false);
   const captionRef = useRef("");
+  const captionsOn = useSetting("captions");
 
   // ---- Audio navigation for people who can't see the map.
   // `announce` speaks (when voice is on) and also updates a hidden live region for screen readers.
@@ -378,8 +381,8 @@ export function EarthApp() {
   );
   const help = useCallback(() => {
     setAnnouncement(HELP);
-    if (voiceOn) speakLong(HELP);
-  }, [voiceOn]);
+    speakLong(HELP); // H always speaks, even with voice guidance off, so anyone can find the commands
+  }, []);
 
   // First visit in this tab: read the intro on the first click or key press (browsers only allow speech after one).
   const introDone = useRef(false);
@@ -394,9 +397,9 @@ export function EarthApp() {
     try {
       sessionStorage.setItem("earthfm.intro", "done");
     } catch {}
-    if (!voiceOn) return false;
-    speakLong(INTRO);
-    return true;
+    if (voiceOn) return false; // already using voice guidance; no need for the welcome
+    speakLong(INTRO); // one short line, spoken even with voice off, so blind visitors learn about V
+    return false; // let this first key still do its job (V turns voice on right away)
   }, [voiceOn]);
   useEffect(() => {
     const onPointer = () => playIntroOnce();
@@ -502,7 +505,7 @@ export function EarthApp() {
         setMenuOpen(false);
         setShareOpen(false);
         setPickMode(false);
-      } else if (onControl && (k === "enter" || k === " " || k.startsWith("arrow"))) return; // let the focused control handle it
+      } else if (onControl && (k === "enter" || k === " " || k.startsWith("arrow") || k === "home" || k === "end" || k.startsWith("page"))) return; // let the focused control handle it
       else if (k === "arrowleft") changeYear(year - 1);
       else if (k === "arrowright") changeYear(year + 1);
       else if (k === "home") changeYear(2001);
@@ -620,7 +623,7 @@ export function EarthApp() {
 
             {controlsHidden ? <HalfScrim /> : <Scrim />}
             {!controlsHidden && <YearPicker layer={LAND_LAYER} year={year} onYear={setYear} arrows={false} />}
-            <WordCaption text={caption} />
+            <WordCaption text={caption} show={captionsOn} />
             <h1 className="sr-only">EarthFM</h1>
             <p className="sr-only">{INTRO}</p>
             <p className="sr-only" aria-live="assertive">{announcement}</p>
@@ -635,7 +638,10 @@ export function EarthApp() {
                   onPlayPause={togglePlay}
                   onPrev={prev}
                   onNext={next}
-                  onVolume={setVolume}
+                  onVolume={(v) => {
+                    setVolume(v);
+                    if (voiceOn) speakNow(`Volume ${Math.round(v * 100)} percent.`);
+                  }}
                 />
               </>
             )}

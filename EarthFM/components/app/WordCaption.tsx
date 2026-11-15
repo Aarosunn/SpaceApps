@@ -7,7 +7,7 @@ import s from "./WordCaption.module.css";
 const WORD_MS = 110;
 
 /* Live caption that types itself in word by word (Figma 28:176 look). Screen readers get the full sentence once. */
-export function WordCaption({ text }: { text: string }) {
+export function WordCaption({ text, show = true }: { text: string; show?: boolean }) {
   const words = text.split(" ");
   const [shown, setShown] = useState({ text, n: 0 });
   const n = shown.text === text ? shown.n : 0; // new text restarts the reveal
@@ -24,6 +24,8 @@ export function WordCaption({ text }: { text: string }) {
     return () => clearInterval(id);
   }, [text, words.length]);
 
+  // Captions switched off: nothing on screen, but screen readers still hear each line.
+  if (!show) return <span className="sr-only" aria-live="polite">{text}</span>;
   return (
     <div className={s.caption}>
       <Icon name="icon-caption" size={22} />

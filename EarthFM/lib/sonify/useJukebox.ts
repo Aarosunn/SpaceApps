@@ -3,6 +3,7 @@
 /* Globe <-> teammates' sonification engine (spaceapps-2026/sonification/recipes-browser).
    Musical decisions live in sonify-core.js; jukebox-engine.js builds the Tone.js graph and follows a media clock.
    Here we only: load the SVS 3912 timeline, make a per-place version of it, and drive a clip clock from the player UI. */
+import { registerAudioContext } from "@/lib/settings";
 import { useCallback, useEffect, useRef } from "react";
 import core from "./sonify-core.js";
 import Engine from "./jukebox-engine.js";
@@ -45,6 +46,7 @@ export function useJukebox() {
     if (s.player) return s;
     const [Tone, tl] = await Promise.all([import("tone"), fetch(asset("/sonify/3912.json")).then((r) => r.json())]);
     await Tone.start();
+    registerAudioContext(Tone.getContext().rawContext as unknown as { destination: AudioDestinationNode }); // Mono audio setting
     s.Tone = Tone;
     s.tl = tl;
     s.engine = Engine.createEngine(Tone, core, MAP);

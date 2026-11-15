@@ -1,3 +1,4 @@
+import { registerAudioContext } from "@/lib/settings";
 /* Web Audio sonification for the game. All sound is generated live from the data values (no samples). */
 import type { Round, Timbre } from "./rounds";
 
@@ -28,6 +29,7 @@ export function audio() {
     master.gain.value = 0.8;
     master.connect(ctx.destination);
   }
+  registerAudioContext(ctx); // Mono audio setting
   if (ctx.state === "suspended") void ctx.resume();
   return ctx;
 }
