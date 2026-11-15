@@ -58,7 +58,7 @@ export type SoundRecipe = {
   dates: [string, string]; // first and last date, formatted
   fmt: (v: number) => string; // 0..1 -> "23.4 °C"
   stepAt: (t: number) => SweepStep; // what is being read at clip time t (row/col = -1 in time mode: the whole window)
-  captionAt: (t: number) => string; // one sentence on what the song is doing at clip time t
+  caption: string; // one short line for the whole song: how it sounds, and why
   timeline: Timeline; // what the player is given: one frame per step, mean = that step's value
   rests: Set<number>; // step numbers with nothing to play
   padLevel: number[]; // per step: the mean of the window's cells with data (drives the background tone)
@@ -78,19 +78,17 @@ export function recipeFor(tl: Timeline, p: Place, layer: Layer, mode: SonMode): 
   const noteFor = (v: number) => core.midiToName(notes[core.valueToIndex(core.norm(v, lo, hi), notes.length)]);
   const n = Math.floor(TIMELINE_SECONDS / STEP) + 1, cells = VIEW_ROWS * VIEW_COLS;
   const steps: SweepStep[] = [], dense: Frame[] = [], rests = new Set<number>(), padLevel: number[] = [];
-  const rowRange: ([number, number] | null)[] = []; // per step: lowest and highest value in the row being swept
   let dataCells = 0;
   for (let k = 0; k < n; k++) {
     const t = k * STEP, s = core.sampleTimeline(tl, t), i = k % cells;
     const row = r0 + Math.floor(i / VIEW_COLS), col = c0 + (i % VIEW_COLS);
-    let sum = 0, count = 0, rmin = Infinity, rmax = -Infinity;
+    let sum = 0, count = 0;
     for (let rr = 0; rr < VIEW_ROWS; rr++)
       for (let cc = 0; cc < VIEW_COLS; cc++) {
         const w: number = s.grid[(r0 + rr) * cols + c0 + cc];
         if (w <= HAS_DATA) continue;
         sum += w;
         count++;
-        if (r0 + rr === row) { rmin = Math.min(rmin, w); rmax = Math.max(rmax, w); }
       }
     if (k === 0) dataCells = count;
     const mean = count ? sum / count : 0;
@@ -98,37 +96,36 @@ export function recipeFor(tl: Timeline, p: Place, layer: Layer, mode: SonMode): 
     const has = v > HAS_DATA;
     if (!has) rests.add(k);
     padLevel.push(mean);
-    rowRange.push(rmax >= rmin ? [rmin, rmax] : null);
     steps.push({ row: mode === "area" ? row : -1, col: mode === "area" ? col : -1, value: has ? v : null, note: has ? noteFor(v) : null, frame: s.index });
     dense.push({ t, mean: has ? v : 0, motion: s.motion, grid: tl.frames[s.index].grid, events: [], date: tl.frames[s.index].date });
   }
   const at = (t: number) => Math.min(n - 1, Math.max(0, Math.floor(t / STEP + 1e-6)));
-  // A short caption: how it sounds, and why. "High notes: warm water, 27.6 to 29.0 °C."
+  // ONE short caption for the whole song: how it sounds, and why. It does not change while the song plays.
+  //   by area: "Mostly high notes: warm water, 20 to 29 °C."   by time: "Notes rise: cooler than normal to hotter than normal."
   const band = (v: number) => { const u = core.norm(v, lo, hi); return u < 1 / 3 ? 0 : u < 2 / 3 ? 1 : 2; };
-  const PITCH = ["Low", "Mid", "High"];
-  // one decimal fewer than the readout, so the caption does not rewrite itself on every tiny change
+  const PITCH = ["low", "mid", "high"];
+  const cap = (x: string) => x[0].toUpperCase() + x.slice(1);
+  // one decimal fewer than the data, to keep the caption short
   const round = (v: number) => (vmin + v * (vmax - vmin)).toFixed(Math.max(0, layer.decimals - 1));
-  const captionAt = (t: number) => {
-    const k = at(t), st = steps[k];
-    if (mode === "area") {
-      const r = rowRange[k];
-      if (!r) return `Silent: ${layer.noData.toLowerCase()} in this row.`;
-      const b = band((r[0] + r[1]) / 2);
-      if (!layer.numbers) return `${PITCH[b]} notes: ${layer.words[b]}.`;
-      return `${PITCH[b]} notes: ${layer.words[b]}, ${round(r[0])} to ${round(r[1])}${layer.unit}.`;
-    }
-    if (st.value === null) return `Silent: ${layer.noData.toLowerCase()} here.`;
-    const before = steps[Math.max(0, k - 16)].value ?? st.value, d = st.value - before; // against 4 seconds ago
-    const b = band(st.value), moving = Math.abs(d) < 0.004 ? "steady" : d > 0 ? "rising" : "falling";
-    if (!layer.numbers) return `${PITCH[b]} notes, ${moving}: ${layer.words[b]}.`;
-    return `${PITCH[b]} notes, ${moving}: ${layer.words[b]}, ${round(st.value)}${layer.unit}.`;
-  };
+  const played = steps.filter((x) => x.value !== null).map((x) => x.value as number);
+  let caption: string;
+  if (!played.length) caption = `Silent: ${layer.noData.toLowerCase()} in this picture.`;
+  else if (mode === "area") {
+    const min = Math.min(...played), max = Math.max(...played), b = band(played.reduce((a, v) => a + v, 0) / played.length);
+    const mixed = band(min) !== band(max);
+    caption = `${cap(mixed ? `mostly ${PITCH[b]}` : PITCH[b])} notes: ${layer.words[b]}` + (layer.numbers ? `, ${round(min)} to ${round(max)}${layer.unit}.` : ".");
+  } else {
+    const a = played[0], z = played[played.length - 1], d = z - a;
+    const moving = Math.abs(d) < 0.02 ? "stay level" : d > 0 ? "rise" : "fall";
+    const words = band(a) === band(z) ? `${layer.words[band(a)]} throughout` : `${layer.words[band(a)]} to ${layer.words[band(z)]}`;
+    caption = `Notes ${moving}: ${words}` + (layer.numbers ? `, ${round(a)} to ${round(z)}${layer.unit}.` : ".");
+  }
   return {
     layer, mode, frames: tl.frames, grid: tl.meta.grid, window: { r0, c0 }, home, lo, hi,
     scale: notes.map((m) => core.midiToName(m)),
     stepSeconds: STEP, passSeconds: cells * STEP, barSeconds: STEP * map.stepsPerBar, dataCells,
     dates: [prettyDate(tl.frames[0].date), prettyDate(tl.frames[tl.frames.length - 1].date)],
-    fmt, stepAt: (t) => steps[at(t)], captionAt,
+    fmt, stepAt: (t) => steps[at(t)], caption,
     timeline: { meta: { ...tl.meta, fps: 1 / STEP, frame_step: 1, n_frames: n }, frames: dense },
     rests, padLevel,
   };

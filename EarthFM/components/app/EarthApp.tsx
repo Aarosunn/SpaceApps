@@ -483,7 +483,7 @@ export function EarthApp() {
   const meta = `Mixtape · ${stops.length} stops · ${mmss(stops.length * 164)}`; // Figma: 3 stops = 8:12 (2:44 per stop incl. travel)
   const caption =
     notice ??
-    (flight ? `Flying to ${flight.to.name}…` : pickMode ? "Click a place on the map to add it." : nowPlaying ? (song ? song.captionAt(elapsed) : `Loading ${layerLabel.toLowerCase()}…`) : IDLE_CAPTION);
+    (flight ? `Flying to ${flight.to.name}…` : pickMode ? "Click a place on the map to add it." : nowPlaying ? (song ? song.caption : `Loading ${layerLabel.toLowerCase()}…`) : IDLE_CAPTION);
   // "Place · layer · first date – last date" (the dates the song runs through)
   const span = song ? ` · ${song.dates[0]} – ${song.dates[1]}` : "";
   const nowText = flight ? `Up next: ${flight.to.name} · ${layerLabel}` : nowPlaying ? `${nowPlaying.name} · ${layerLabel}${span}` : "Now listening: nothing yet";
