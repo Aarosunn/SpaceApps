@@ -41,6 +41,12 @@ const CAPTIONS: { at: number; to: number; text: string; hi?: string }[] = [
 
 const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
 
+/* Voice-over. Record it from SCRIPT.md, save it as public/vo.wav (or .mp3 and change the name below), then set
+   VOICEOVER to true and render. The app's own sound drops to APP_GAIN under the voice. */
+const VOICEOVER = false;
+const VOICEOVER_FILE = "vo.wav";
+const APP_GAIN = VOICEOVER ? 0.3 : 1;
+
 function Background() {
   const frame = useCurrentFrame();
   const drift = Math.sin(frame / 90) * 40;
@@ -95,7 +101,7 @@ function AppShot({ shot }: { shot: Shot }) {
   const enter = spring({ frame, fps, config: { damping: 18, stiffness: 220 } });
   const [ox, oy, z0, z1] = shot.zoom;
   const zoom = interpolate(frame, [0, len], [z0, z1], { ...clamp, easing: Easing.inOut(Easing.cubic) });
-  const vol = (fr: number) => interpolate(fr, [0, 5, len - 5, len], [0, 1, 1, 0], clamp);
+  const vol = (fr: number) => interpolate(fr, [0, 5, len - 5, len], [0, 1, 1, 0], clamp) * APP_GAIN;
   return (
     <AbsoluteFill>
       <div style={{ position: "absolute", left: 224, top: 28, width: 1472, height: 920, borderRadius: 28, overflow: "hidden", boxShadow: `0 0 0 3px ${shot.accent}, 0 30px 90px rgba(0,0,0,0.6), 0 0 120px ${shot.accent}33`, transform: `scale(${0.94 + 0.06 * enter})`, opacity: enter, background: PANEL }}>
@@ -140,7 +146,7 @@ function Access() {
   const len = f(ACCESS.len);
   const items: [string, string][] = [["Voice commands", SEA], ["Keyboard-only map", LIME], ["Captions + spoken descriptions", FIRE], ["Screen-reader ready", HEAT]];
   const enter = spring({ frame, fps, config: { damping: 18, stiffness: 200 } });
-  const vol = (fr: number) => interpolate(fr, [0, 5, len - 5, len], [0, 1, 1, 0], clamp);
+  const vol = (fr: number) => interpolate(fr, [0, 5, len - 5, len], [0, 1, 1, 0], clamp) * APP_GAIN;
   return (
     <AbsoluteFill>
       <div style={{ position: "absolute", left: 96, top: 150, width: 720, fontFamily: SANS, color: PAPER }}>
@@ -219,6 +225,8 @@ export function Demo() {
       {CUTS_WITH_WIPE.map((t) => (
         <Sequence key={t} from={f(t) - 7} durationInFrames={14}><Wipe /></Sequence>
       ))}
+
+      {VOICEOVER && <Audio src={staticFile(VOICEOVER_FILE)} volume={1} />}
 
       {/* sound effects (synthesised: capture/make_sfx.py) */}
       <Sequence from={f(0.15)}><Audio src={staticFile("sfx/riser.wav")} volume={0.55} /></Sequence>
