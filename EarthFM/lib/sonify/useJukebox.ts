@@ -6,7 +6,8 @@
 
    Around the place we take a window of 8 x 5 grid cells (80 x 50 degrees). Two ways to turn it into a song:
    - "area": the melody reads one cell per step (0.25 s), left to right, top row to bottom row, then starts again:
-     40 steps = one pass every 10 s. A cell with no data is a rest. Meanwhile the data moves through the dates.
+     40 steps = one pass every 10 s. A cell with no data is a rest. The picture is ONE date, chosen on the timeline
+     (the latest date unless another is picked), so the song is about how the place varies across space.
    - "time": the melody follows the average of the whole window, from the first date to the last. */
 import { useCallback, useEffect, useRef } from "react";
 import core from "./sonify-core.js";
@@ -56,6 +57,9 @@ export type SoundRecipe = {
   stepSeconds: number; passSeconds: number; barSeconds: number;
   dataCells: number; // how many of the window's cells have data on the first date (0 = nothing to play)
   dates: [string, string]; // first and last date, formatted
+  allDates: string[]; // every date, formatted (the timeline's bars)
+  levels: number[]; // per date: the mean of the window's cells with data, 0..1 (the height of the timeline's bars)
+  date: number; // by area: the index of the one date being played; by time: -1 (the song runs through all of them)
   fmt: (v: number) => string; // 0..1 -> "23.4 °C"
   stepAt: (t: number) => SweepStep; // what is being read at clip time t (row/col = -1 in time mode: the whole window)
   caption: string; // one short line for the whole song: how it sounds, and why
@@ -65,7 +69,7 @@ export type SoundRecipe = {
 };
 
 /* Build the song for one place. The player, the panel and the caption all read this one object. */
-export function recipeFor(tl: Timeline, p: Place, layer: Layer, mode: SonMode): SoundRecipe {
+export function recipeFor(tl: Timeline, p: Place, layer: Layer, mode: SonMode, date?: number | null): SoundRecipe {
   const [rows, cols] = tl.meta.grid;
   const home = cellFor(tl, p);
   const r0 = Math.min(rows - VIEW_ROWS, Math.max(0, home.row - Math.floor(VIEW_ROWS / 2)));
@@ -79,8 +83,12 @@ export function recipeFor(tl: Timeline, p: Place, layer: Layer, mode: SonMode): 
   const n = Math.floor(TIMELINE_SECONDS / STEP) + 1, cells = VIEW_ROWS * VIEW_COLS;
   const steps: SweepStep[] = [], dense: Frame[] = [], rests = new Set<number>(), padLevel: number[] = [];
   let dataCells = 0;
+  // By area the picture stands still on one date (the latest unless one was picked); by time it runs through them all.
+  const lastFrame = tl.frames.length - 1;
+  const fixed = mode === "area" ? Math.min(lastFrame, Math.max(0, Math.round(date ?? lastFrame))) : -1;
+  const still = fixed >= 0 ? { grid: tl.frames[fixed].grid, index: fixed, motion: tl.frames[fixed].motion } : null;
   for (let k = 0; k < n; k++) {
-    const t = k * STEP, s = core.sampleTimeline(tl, t), i = k % cells;
+    const t = k * STEP, s = still ?? core.sampleTimeline(tl, t), i = k % cells;
     const row = r0 + Math.floor(i / VIEW_COLS), col = c0 + (i % VIEW_COLS);
     let sum = 0, count = 0;
     for (let rr = 0; rr < VIEW_ROWS; rr++)
@@ -125,6 +133,17 @@ export function recipeFor(tl: Timeline, p: Place, layer: Layer, mode: SonMode): 
     scale: notes.map((m) => core.midiToName(m)),
     stepSeconds: STEP, passSeconds: cells * STEP, barSeconds: STEP * map.stepsPerBar, dataCells,
     dates: [prettyDate(tl.frames[0].date), prettyDate(tl.frames[tl.frames.length - 1].date)],
+    allDates: tl.frames.map((f) => prettyDate(f.date)),
+    levels: tl.frames.map((f) => {
+      let sum = 0, count = 0;
+      for (let rr = 0; rr < VIEW_ROWS; rr++)
+        for (let cc = 0; cc < VIEW_COLS; cc++) {
+          const w = f.grid[(r0 + rr) * cols + c0 + cc];
+          if (w > HAS_DATA) { sum += w; count++; }
+        }
+      return count ? sum / count : 0;
+    }),
+    date: fixed,
     fmt, stepAt: (t) => steps[at(t)], caption,
     timeline: { meta: { ...tl.meta, fps: 1 / STEP, frame_step: 1, n_frames: n }, frames: dense },
     rests, padLevel,
@@ -190,10 +209,10 @@ export function useJukebox() {
     return s;
   }, []);
 
-  const recipe = useCallback(async (place: Place, layer: LayerId, mode: SonMode) => recipeFor(await timeline(layer), place, LAYERS[layer], mode), [timeline]);
+  const recipe = useCallback(async (place: Place, layer: LayerId, mode: SonMode, date?: number | null) => recipeFor(await timeline(layer), place, LAYERS[layer], mode, date), [timeline]);
 
-  const play = useCallback(async (place: Place, layer: LayerId, mode: SonMode, fromSeconds = 0) => {
-    const [s, song] = await Promise.all([ensure(), recipe(place, layer, mode)]);
+  const play = useCallback(async (place: Place, layer: LayerId, mode: SonMode, fromSeconds = 0, date?: number | null) => {
+    const [s, song] = await Promise.all([ensure(), recipe(place, layer, mode, date)]);
     if (s.left) return;
     s.clock?.pause();
     const clock = core.makeClipClock(TIMELINE_SECONDS, () => performance.now() / 1000);
