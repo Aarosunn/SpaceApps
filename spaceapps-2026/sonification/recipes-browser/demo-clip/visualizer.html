@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Where each note comes from - SVS 3912</title>
+<style>
+  body { font: 15px/1.45 system-ui, sans-serif; max-width: 900px; margin: 0 auto; padding: 12px; background: #111; color: #eee; }
+  h1 { font-size: 1.3em; margin: 0 0 6px; }
+  #stage { position: relative; }
+  video, #over { display: block; width: 100%; }
+  #over { position: absolute; inset: 0; height: 100%; pointer-events: none; }
+  #roll { display: block; width: 100%; height: 190px; background: #1b1b1b; margin-top: 8px; }
+  #now { font-size: 1.05em; margin: 8px 0; min-height: 3em; }
+  .k { display: inline-block; width: 12px; height: 12px; vertical-align: -1px; margin-right: 4px; }
+  ul { padding-left: 18px; margin: 6px 0; }
+  button { font: inherit; padding: 6px 14px; }
+</style>
+</head>
+<body>
+<h1>Where each note comes from</h1>
+<p>NASA SVS 3912, sea surface temperature. Press play. Four notes are played every second.</p>
+<div id="stage">
+  <video id="v" src="b1_sonified.webm" controls playsinline></video>
+  <canvas id="over"></canvas>
+</div>
+<p id="now" role="status" aria-live="off">Loading the note list.</p>
+<canvas id="roll" aria-label="Scrolling chart of the melody: time runs left to right, higher notes are drawn higher, the white line is now."></canvas>
+<ul>
+  <li><span class="k" style="background:#fff"></span><strong>White frame = pitch source.</strong> Each note's pitch comes from the average temperature of every ocean cell in view, not from one spot. It flashes on each note.</li>
+  <li><span class="k" style="background:#ffd23f"></span><strong>Yellow column = left/right source.</strong> The warmest of the eight columns decides which ear the note leans towards.</li>
+  <li><strong>Numbers</strong> are the temperature (°C) read from the pixels of each of the 4 x 8 cells. Cells showing a dash are land.</li>
+  <li><strong>Chart below:</strong> each bar is one note. The lit one is sounding now.</li>
+</ul>
+<script>
+(async function () {
+  'use strict';
+  const v = document.getElementById('v'), over = document.getElementById('over'), roll = document.getElementById('roll'), now = document.getElementById('now');
+  let d;
+  try { d = await (await fetch('notes_3912.json')).json(); }
+  catch (e) { now.textContent = 'Could not load notes_3912.json: ' + e.message; return; }
+  const ROWS = d.meta.grid[0], COLS = d.meta.grid[1], lead = d.lead, frames = d.frames, STEP = lead[1].t - lead[0].t;
+  const scaleIdx = new Map(d.scale.map((s, i) => [s.midi, i]));
+  now.textContent = 'Ready. ' + lead.length + ' notes, from ' + d.scale[0].name + ' (' + d.lo_C + ' °C) to ' + d.scale[d.scale.length - 1].name + ' (' + d.hi_C + ' °C).';
+
+  // index of the last item whose time is <= t
+  const at = (arr, t) => { let lo = 0, hi = arr.length - 1; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (arr[m].t <= t) lo = m; else hi = m - 1; } return lo; };
+  const fit = (c) => { const r = c.getBoundingClientRect(), k = devicePixelRatio || 1; if (c.width !== Math.round(r.width * k) || c.height !== Math.round(r.height * k)) { c.width = Math.round(r.width * k); c.height = Math.round(r.height * k); } return k; };
+
+  function draw() {
+    const t = v.currentTime, i = at(lead, t), n = lead[i], f = frames[at(frames, t)];
+    const age = t - n.t, sounding = age >= 0 && age < STEP, flash = sounding ? Math.max(0, 1 - age / STEP) : 0;
+
+    // ----- overlay on the video -----
+    let k = fit(over), g = over.getContext('2d'), W = over.width, H = over.height, cw = W / COLS, ch = H / ROWS;
+    g.clearRect(0, 0, W, H);
+    const colSum = Array.from({ length: COLS }, (_, c) => { let s = 0; for (let r = 0; r < ROWS; r++) s += f.grid[r * COLS + c]; return s; });
+    const hot = colSum.indexOf(Math.max(...colSum));                 // same rule as score.py: brightest column
+    g.fillStyle = 'rgba(255,210,63,0.16)'; g.fillRect(hot * cw, 0, cw, H);
+    g.strokeStyle = '#ffd23f'; g.lineWidth = 2 * k; g.strokeRect(hot * cw + k, k, cw - 2 * k, H - 2 * k);
+    g.lineWidth = k; g.strokeStyle = 'rgba(255,255,255,0.28)'; g.font = (12 * k) + 'px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+      g.strokeRect(c * cw, r * ch, cw, ch);
+      const val = f.grid[r * COLS + c], txt = val > 0 ? val.toFixed(1) : '-';
+      g.fillStyle = 'rgba(0,0,0,0.55)'; g.fillRect(c * cw + cw / 2 - 19 * k, r * ch + ch / 2 - 9 * k, 38 * k, 18 * k);
+      g.fillStyle = '#fff'; g.fillText(txt, c * cw + cw / 2, r * ch + ch / 2);
+    }
+    g.strokeStyle = 'rgba(255,255,255,' + (0.25 + 0.75 * flash) + ')'; g.lineWidth = (2 + 6 * flash) * k; g.strokeRect(2 * k, 2 * k, W - 4 * k, H - 4 * k);
+
+    // ----- scrolling melody chart -----
+    k = fit(roll); g = roll.getContext('2d'); W = roll.width; H = roll.height;
+    g.clearRect(0, 0, W, H);
+    const SPAN = 12, x0 = W * 0.3, pxs = W / SPAN, N = d.scale.length, rowH = H / N;
+    g.font = (11 * k) + 'px system-ui, sans-serif'; g.textBaseline = 'middle'; g.textAlign = 'left';
+    for (let s = 0; s < N; s++) {
+      const y = H - (s + 0.5) * rowH;
+      g.fillStyle = s % 2 ? '#222' : '#1b1b1b'; g.fillRect(0, y - rowH / 2, W, rowH);
+      g.fillStyle = '#888'; g.fillText(d.scale[s].name, 4 * k, y);
+    }
+    for (let j = Math.max(0, i - 20); j < lead.length; j++) {
+      const m = lead[j], x = x0 + (m.t - t) * pxs;
+      if (x > W) break;
+      const y = H - (scaleIdx.get(m.midi) + 0.5) * rowH, on = j === i && sounding;
+      g.fillStyle = on ? '#fff' : (m.t < t ? '#3d6f8f' : '#5fb0e0');
+      g.fillRect(x, y - rowH * 0.36, Math.max(2, STEP * pxs * 0.85), rowH * 0.72);
+    }
+    g.fillStyle = '#fff'; g.fillRect(x0 - k, 0, 2 * k, H);
+
+    const bar = Math.min(d.pad.length - 1, Math.floor(t / d.bar));
+    now.textContent = sounding
+      ? 'Now: ' + n.name + ' - average ocean temperature in view ' + n.C.toFixed(1) + ' °C (this clip runs ' + d.lo_C + ' to ' + d.hi_C + ' °C). ' +
+        'Leaning ' + (n.pan < 0.45 ? 'left' : n.pan > 0.55 ? 'right' : 'centre') + ': warmest column is ' + (hot + 1) + ' of ' + COLS + '. ' +
+        'Background drone level ' + Math.round(d.pad[bar].vel * 100) + '%, ticks this bar ' + d.pulse_k[bar] + ' of 16.'
+      : 'Paused or between notes.';
+    requestAnimationFrame(draw);
+  }
+  requestAnimationFrame(draw);
+})();
+</script>
+</body>
+</html>
