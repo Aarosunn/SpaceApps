@@ -327,7 +327,8 @@ export function EarthApp() {
       setStops((list) => [...list, place]);
       setNotice(`Added ${place.name} to the mixtape.`);
       setHow(place); // show how this place's sound is generated
-      setHowOpen(true);
+      // The panel animates for the whole song: with reduced motion it opens only on request (? key or button).
+      if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) setHowOpen(true);
       if (current < 0) playStop(stops.length); // nothing is playing: start the new place (otherwise click its dot to hear it)
     },
     [stops, current, playStop],
@@ -415,11 +416,13 @@ export function EarthApp() {
   };
 
   const search = useCallback(() => {
+    if (!query.trim()) return;
     const hit = findArea(query);
     if (!hit) {
       setNotice(`No place called "${query}" yet.`);
       return;
     }
+    setQuery(""); // ready for the next name: keyboard users add several places in a row
     const { x, y } = latLonToXy(hit.lat, hit.lon);
     const surface: Surface = hit.water ? "water" : "land";
     const place = { name: hit.name, x, y, surface };
@@ -512,7 +515,7 @@ export function EarthApp() {
     }
     speak(line, () => setSpeaking(true), () => setSpeaking(false));
   }, [notice, baseLine, voiceOn]);
-  useEffect(() => stopSpeaking, []); // leaving the page (e.g. to the game) stops the voice
+  useEffect(() => () => { stopSpeaking(); said.current = { notice: null, base: null }; }, []); // leaving the page (e.g. to the game) stops the voice
   // "Place · layer · first date – last date" (the dates the song runs through)
   const span = song ? ` · ${song.dates[0]} – ${song.dates[1]}` : "";
   const nowText = flight ? `Up next: ${flight.to.name} · ${layerLabel}` : nowPlaying ? `${nowPlaying.name} · ${layerLabel}${span}` : "Now listening: nothing yet";

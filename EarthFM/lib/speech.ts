@@ -7,6 +7,8 @@ export function forSpeech(text: string): string {
     .replace(/°C vs 1951[–-]80/g, "degrees Celsius compared with the 1951 to 1980 average")
     .replace(/°C/g, "degrees Celsius")
     .replace(/(^|[\s(])[-−](\d)/g, "$1minus $2")
+    .replace(/(^|[\s(])\+(\d)/g, "$1plus $2")
+    .replace(/(\d) cm/g, "$1 centimetres")
     .replace(/\s*·\s*/g, ", ")
     .replace(/\s*–\s*/g, " to ")
     .replace(/…/g, "")
@@ -65,4 +67,5 @@ export function selfCheck() {
   console.assert(forSpeech("Notes rise: near normal to hotter than normal, -0.1 to 1.5 °C vs 1951–80.") === "Notes rise: near normal to hotter than normal, minus 0.1 to 1.5 degrees Celsius compared with the 1951 to 1980 average.", "anomaly");
   console.assert(forSpeech("North Atlantic · Sea heat · 25 Mar 2007 – 3 Mar 2008") === "North Atlantic, Sea heat, 25 Mar 2007 to 3 Mar 2008", "separators");
   console.assert(forSpeech("Flying to Sahara…") === "Flying to Sahara", "ellipsis");
+  console.assert(forSpeech("1: 2003, +3.0 cm. 2: 1880s, −1.0 °C") === "1: 2003, plus 3.0 centimetres. 2: 1880s, minus 1.0 degrees Celsius", "game values");
 }

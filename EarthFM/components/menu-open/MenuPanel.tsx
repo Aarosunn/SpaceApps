@@ -112,13 +112,13 @@ export function MenuPanel({ onClose, onMode, layer = "sst", onLayer, sonMode = "
         <Toggle label="Captions" on value={captions} onChange={onCaptions} />
         <Toggle label="Mono audio" on={false} value={mono} onChange={onMono} />
       </div>
-      {info ? (
-        <p role="status" style={{ margin: 0, font: "400 13px/1.45 var(--sans)", color: "var(--ink)", whiteSpace: "normal" }}>
-          {info === "help"
+      {/* Always mounted: screen readers only announce a status region that existed before its text arrived. */}
+      <p role="status" style={{ margin: 0, font: "400 13px/1.45 var(--sans)", color: "var(--ink)", whiteSpace: "normal", position: info ? "static" : "absolute" }}>
+          {!info ? "" : info === "help"
             ? "To add a place, click the map, or type its name in the search box and press Enter. Its NASA data plays as a melody: higher notes mean higher values. The caption at the bottom left, and the voice, say what the sound means. Press ? to see how the sound is made."
             : "M: menu. Space: play or pause. N: next place. ?: how the sound is made. Backspace: remove the last place. Arrow keys on a place: move it. B: hide the controls. P: hide the mixtape. H: help. K: this list. Esc: close."}
-        </p>
-      ) : (
+      </p>
+      {!info && (
         <div className={`${s.group} ${s.mixGroup}`}>
           <p className={s.label}>Mixtapes</p>
           <button className={s.mixtapes}>

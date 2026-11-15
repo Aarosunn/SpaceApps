@@ -84,3 +84,12 @@ img {
 @media (prefers-contrast: more) {
   :root { --paper-80: #f4f1e8; --paper-96: #f4f1e8; --white-80: #fff; --white-85: #fff; --lime-80: #d8f07a; --ink-80: #17201a; --muted: #17201a; }
 }
+
+/* Windows contrast themes repaint backgrounds but not <img> icons, whose dark strokes vanish on a dark theme:
+   flatten every icon to black, or to white on a dark theme. The switch pictures keep their colours (on/off). */
+@media (forced-colors: active) {
+  img[src$=".svg"]:not([src*="switch"]) { filter: brightness(0); }
+}
+@media (forced-colors: active) and (prefers-color-scheme: dark) {
+  img[src$=".svg"]:not([src*="switch"]) { filter: brightness(0) invert(1); }
+}
