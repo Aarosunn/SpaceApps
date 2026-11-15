@@ -39,7 +39,11 @@ Written 2026-11-14 for Space Apps 2026. Answers: how do we actually get the soun
 python verify_all.py
 ```
 
-Needs Python with numpy, and Node. It writes nothing into the repo. It runs every Python recipe's self-test, re-renders both songs from `recipes-python/data/` and compares them byte for byte with the committed files, pushes odd frames through the pipeline (all land, one flat colour, a single ocean pixel, noise, a one-frame clip, a clip with no data), validates every committed timeline, note list and WAV, runs the Node tests, syntax-checks the script in every page, and confirms every file a page points to exists. Last run: 60 checks, all passing.
+Needs Python with numpy, and Node. It writes nothing into the repo. It runs every Python recipe's self-test, re-renders both songs from `recipes-python/data/` and compares them byte for byte with the committed files, pushes odd frames through the pipeline (all land, one flat colour, a single ocean pixel, noise, a one-frame clip, a clip with no data), validates every committed timeline, note list and WAV, runs the Node tests, syntax-checks the script in every page, and confirms every file a page points to exists. Last run: 62 checks, all passing.
+
+One of those checks is `recipes-python/audit_formulas.py` (31 checks of its own), which compares the maths behind the sounds with values from outside the code: the standard pitch table (A4 = 440 Hz), the sawtooth Fourier series, the equal-power panning identity, the decibel definition, the WAV header layout, the -3 dB point of the low-pass filter, 21 Euclidean rhythms printed in Toussaint (2005), the OKLab reference colours, and the real NASA colour bar read back through the inversion (mean error 0.01 C, worst 0.70 C). It also measures rendered notes by FFT to confirm they sound at the pitch the code claims. The reference values were typed in from the published sources by memory and were not re-fetched, so treat a pass as strong evidence rather than proof.
+
+That audit found one fault, now fixed: the Python rhythm generator returned `xxx.` for E(3,4) where the published pattern is `x.xx`. Only patterns with a single rest were affected, none of which the songs use, so the committed audio did not change.
 
 It cannot check what a page does in a browser or how anything sounds. On 2026-11-14 all nine pages were also opened in Chromium: each loaded with no JavaScript errors and produced sound.
 

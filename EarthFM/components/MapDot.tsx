@@ -3,9 +3,20 @@
 import s from "./MapDot.module.css";
 
 /* Figma component "Map dot" (34:145): 44px hit area, 30px dot. Name lives in aria-label + hover card. */
-export function MapDot({ kind = "Playing", n, left, top, label, onClick }: { kind?: "Playing" | "Queued"; n: number; left: number; top: number; label: string; onClick?: () => void }) {
+type Props = {
+  kind?: "Playing" | "Queued";
+  n: number;
+  left: number;
+  top: number;
+  label: string;
+  onClick?: () => void;
+  onDragStart?: (e: React.PointerEvent) => void; // press on the dot: the parent tracks the drag
+  onKeyDown?: (e: React.KeyboardEvent) => void; // arrow keys: the keyboard way to move it
+};
+
+export function MapDot({ kind = "Playing", n, left, top, label, onClick, onDragStart, onKeyDown }: Props) {
   return (
-    <button className={s.hit} style={{ left, top }} aria-label={label} onClick={onClick}>
+    <button className={s.hit} style={{ left, top, touchAction: "none", cursor: onDragStart ? "grab" : undefined }} aria-label={label} onClick={onClick} onPointerDown={onDragStart} onKeyDown={onKeyDown}>
       <span className={`${s.dot} ${kind === "Playing" ? s.playing : s.queued}`}>{n}</span>
     </button>
   );

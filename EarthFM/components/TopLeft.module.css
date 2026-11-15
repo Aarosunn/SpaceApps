@@ -46,3 +46,6 @@ input.searchText {
   color: var(--ink);
 }
 input.searchText::placeholder { color: var(--muted); opacity: 1; }
+
+.search:focus-within { outline: 3px solid var(--ink); outline-offset: 2px; box-shadow: 0 0 0 2px var(--lime); }
+input.searchText:focus-visible { outline: 0; box-shadow: none; }

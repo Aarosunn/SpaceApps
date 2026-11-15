@@ -22,5 +22,8 @@
   color: var(--ink);
   line-height: normal;
 }
-.playing { background: var(--lime); }
+/* dark with a lime ring, like the playing row in the mixtape: lime vs white fill alone was too close to tell apart */
+.playing { background: var(--ink); color: var(--lime); border-color: var(--lime); }
 .queued { background: var(--white); }
+
+@media (forced-colors: active) { .playing { outline: 3px solid Highlight; } }

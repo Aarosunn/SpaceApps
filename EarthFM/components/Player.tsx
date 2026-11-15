@@ -29,9 +29,10 @@ type PlayerProps = {
   onPrev?: () => void;
   onNext?: () => void;
   onVolume?: (v: number) => void;
+  onSeek?: (fraction: number) => void; // click anywhere on the progress bar: 0 = start, 1 = end
 };
 
-export function SoundPlayer({ time = "0:57 / 1:15", volume = 0.75, playing = true, progress, onPlayPause, onPrev, onNext, onVolume }: PlayerProps) {
+export function SoundPlayer({ time = "0:57 / 1:15", volume = 0.75, playing = true, progress, onPlayPause, onPrev, onNext, onVolume, onSeek }: PlayerProps) {
   const pct = `${Math.max(0, Math.min(1, volume)) * 100}%`; // track spans the slider box, so 100% lands on its right end
   const head = progress === undefined ? PLAYHEAD : Math.min(WAVE.length - 1, Math.floor(progress * WAVE.length));
   const setFromClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -45,7 +46,7 @@ export function SoundPlayer({ time = "0:57 / 1:15", volume = 0.75, playing = tru
           <button className={`${s.round} ${s.outline}`} aria-label="Previous song" onClick={onPrev}>
             <Icon name="icon-prev" size={18} />
           </button>
-          <button className={`${s.round} ${s.solid}`} aria-label={playing ? "Pause (Space)" : "Play (Space)"} aria-pressed={playing} onClick={onPlayPause}>
+          <button className={`${s.round} ${s.solid}`} aria-label={playing ? "Pause (Space)" : "Play (Space)"} onClick={onPlayPause}>
             <Icon name={playing ? "icon-pause" : "icon-play"} size={24} />
           </button>
           <button className={`${s.round} ${s.outline}`} aria-label="Skip to next (N)" onClick={onNext}>
@@ -54,7 +55,27 @@ export function SoundPlayer({ time = "0:57 / 1:15", volume = 0.75, playing = tru
         </div>
         <div className={s.timeline}>
           <p className={s.time}>{time}</p>
-          <div className={s.wave} aria-hidden="true">
+          <div
+            className={s.wave}
+            style={onSeek ? { cursor: "pointer" } : undefined}
+            role={onSeek ? "slider" : undefined}
+            tabIndex={onSeek ? 0 : undefined}
+            aria-label={onSeek ? "Position in the song" : undefined}
+            aria-valuemin={onSeek ? 0 : undefined}
+            aria-valuemax={onSeek ? 100 : undefined}
+            aria-valuenow={onSeek ? Math.round((progress ?? 0) * 100) : undefined}
+            aria-hidden={onSeek ? undefined : true}
+            onClick={(e) => {
+              const r = e.currentTarget.getBoundingClientRect();
+              onSeek?.(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)));
+            }}
+            onKeyDown={(e) => {
+              if (!onSeek || (e.key !== "ArrowLeft" && e.key !== "ArrowRight")) return;
+              e.preventDefault();
+              e.stopPropagation();
+              onSeek(Math.max(0, Math.min(1, (progress ?? 0) + (e.key === "ArrowRight" ? 0.05 : -0.05))));
+            }}
+          >
             {WAVE.map((h, i) => (
               <div key={i} className={`${s.waveBar} ${i === head ? s.waveNow : i > head ? s.waveAhead : ""}`} style={{ height: h }} />
             ))}
@@ -65,7 +86,12 @@ export function SoundPlayer({ time = "0:57 / 1:15", volume = 0.75, playing = tru
         <div className={s.volume}>
           <p className={s.volumeLabel}>VOLUME</p>
           <button className={s.volBtn} aria-label="Volume down" onClick={() => onVolume?.(Math.max(0, +(volume - 0.1).toFixed(2)))}>−</button>
-          <div className={s.slider} onClick={setFromClick} role="slider" aria-label="Volume" aria-valuenow={Math.round(volume * 100)} aria-valuemin={0} aria-valuemax={100}>
+          <div className={s.slider} onClick={setFromClick} role="slider" aria-label="Volume" tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+              e.preventDefault();
+              onVolume?.(Math.max(0, Math.min(1, +(volume + (e.key === "ArrowRight" ? 0.1 : -0.1)).toFixed(2))));
+            }} aria-valuenow={Math.round(volume * 100)} aria-valuemin={0} aria-valuemax={100}>
             <div className={s.track} />
             <div className={s.fill} style={{ width: pct }} />
             <img className={s.thumb} style={{ left: `calc(${pct} - 6px)` }} alt="" src={asset("/figma/volume-thumb.svg")} />

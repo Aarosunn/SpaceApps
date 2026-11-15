@@ -75,11 +75,13 @@ def euclid(k, n):
     if k >= n:
         return [1] * n
     groups, rest = [[1] for _ in range(k)], [[0] for _ in range(n - k)]
-    while len(rest) > 1:                         # pair off: append one remainder group to each group
+    while True:                                  # pair off: append one remainder group to each group
         m = min(len(groups), len(rest))
         paired = [groups[i] + rest[i] for i in range(m)]
         rest = groups[m:] if len(groups) > m else rest[m:]
         groups = paired
+        if len(rest) <= 1:                       # always pair at least once, so E(3,4) is x.xx and not xxx.
+            break
     return [step for g in groups + rest for step in g]
 
 

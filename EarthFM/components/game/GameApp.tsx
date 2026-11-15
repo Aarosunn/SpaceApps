@@ -9,6 +9,8 @@ import { WordCaption } from "@/components/app/WordCaption";
 import { ROUNDS, type Round } from "@/lib/game/rounds";
 import { audio, contourFor, earcon, playContour, stopAll, type Contour } from "@/lib/game/audio";
 import { ContourView } from "./ContourView";
+import { speak, stopSpeaking } from "@/lib/speech";
+import { getPref } from "@/lib/prefs";
 import s from "./Game.module.css";
 
 const W = 1440, H = 900;
@@ -16,6 +18,10 @@ const GAP_MS = 550; // pause between sounds in a sequence
 
 type Phase = "start" | "card" | "listen" | "choose" | "reveal" | "end";
 type Step = { key: "demo0" | "demo1" | "ref" | "mystery"; label: string; sub?: string; contour: Contour; hidden?: boolean };
+
+/* What the voice says on a round card: the topic, what the sound means, and the order of the sounds (nothing is spoken while they play). */
+const cardSpeech = (r: Round) =>
+  `${r.topic} ${r.learn.text} You will hear ${r.learn.demo.length === 1 ? "one example" : `${r.learn.demo.length} examples`}, then the reference, then the mystery sound last.`;
 
 function stepsFor(r: Round, withLearn: boolean): Step[] {
   const mystery = r.options[r.answer];
@@ -26,10 +32,11 @@ function stepsFor(r: Round, withLearn: boolean): Step[] {
   return steps;
 }
 
+const MIN_SCALE = 0.7; // same floor as the globe: below it the page scrolls, so browser zoom works
 function useFitScale() {
   const [k, setK] = useState(1);
   useEffect(() => {
-    const fit = () => setK(Math.min(window.innerWidth / W, window.innerHeight / H));
+    const fit = () => setK(Math.max(MIN_SCALE, Math.min(window.innerWidth / W, window.innerHeight / H)));
     fit();
     window.addEventListener("resize", fit);
     return () => window.removeEventListener("resize", fit);
@@ -49,6 +56,22 @@ export function GameApp() {
   const [results, setResults] = useState<Result[]>([]);
   const [frame, setFrame] = useState(0);
   const [caption, setCaption] = useState("Put your headphones on. Each round: listen, then guess.");
+  const [seeIt, setSeeIt] = useState(false); // draw the mystery sound as a line, for players who cannot hear it
+  // The voice setting from the globe. It speaks between the sounds, never over them (the sounds are the question).
+  const [voiceOn, setVoiceOn] = useState(false);
+  const voice = useRef(false);
+  useEffect(() => {
+    const load = () => {
+      voice.current = getPref("earthfm-voice") !== "0";
+      setVoiceOn(voice.current);
+    };
+    load();
+    return stopSpeaking;
+  }, []);
+  const tell = (text: string, say = text) => {
+    setCaption(text);
+    if (voice.current) speak(say);
+  };
   const shownAt = useRef(0);
   const replays = useRef(0);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -68,6 +91,7 @@ export function GameApp() {
   const playSequence = useCallback((idxs: number[], after?: () => void) => {
     clearTimers();
     stopAll();
+    stopSpeaking(); // the voice never talks over a sound
     let t = 0;
     idxs.forEach((i) => {
       const st = steps[i];
@@ -90,7 +114,10 @@ export function GameApp() {
     setCaption(round.learn.text);
     playSequence(steps.map((_, i) => i), () => {
       setPhase("choose");
-      setCaption(`${round.question} Press 1 to 4, or Space to hear the mystery again.`);
+      tell(
+        `${round.question} Press 1 to 4, or Space to hear the mystery again.`,
+        `${round.question} The reference was ${round.reference.label}, ${round.reference.display}. ${round.options.map((o, i) => `${i + 1}: ${o.label}, ${o.display}`).join(". ")}. Press 1 to 4, or Space to hear the mystery again.`,
+      );
       shownAt.current = performance.now();
     });
   };
@@ -112,7 +139,7 @@ export function GameApp() {
     replays.current = 0;
     setFrame(0);
     setPhase("reveal");
-    setCaption(`${correct ? "Correct!" : `Not quite. It was ${round.options[round.answer].label}.`} ${round.takeaway}`);
+    tell(`${correct ? "Correct!" : `Not quite. It was ${round.options[round.answer].label}.`} ${round.takeaway}`);
   }, [phase, round]);
 
   const nextRound = () => {
@@ -121,10 +148,10 @@ export function GameApp() {
     if (ri + 1 < ROUNDS.length) {
       setRi(ri + 1);
       setPhase("card");
-      setCaption(ROUNDS[ri + 1].topic);
+      tell(ROUNDS[ri + 1].topic, cardSpeech(ROUNDS[ri + 1]));
     } else {
       setPhase("end");
-      setCaption("That's the set. See how your ear did.");
+      tell("That's the set. See how your ear did.");
     }
   };
 
@@ -133,12 +160,17 @@ export function GameApp() {
     setResults([]);
     setChoice(null);
     setPhase("card");
-    setCaption(ROUNDS[0].topic);
+    tell(ROUNDS[0].topic, cardSpeech(ROUNDS[0]));
   };
 
   // Reveal: step through the NASA frames (sea level, Arctic) once, ending on the latest.
   useEffect(() => {
     if (phase !== "reveal" || !round.reveal.frames.length) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      const last = () => setFrame(round.reveal.frames.length - 1); // no slideshow: show the latest picture at once
+      last();
+      return;
+    }
     const id = setInterval(() => setFrame((f) => (f + 1 < round.reveal.frames.length ? f + 1 : f)), 900);
     return () => clearInterval(id);
   }, [phase, round]);
@@ -165,16 +197,18 @@ export function GameApp() {
     if (phase !== "start") return startRound();
     audio(); // unlock audio on this tap
     setPhase("card");
-    setCaption(round.topic);
+    tell(round.topic, cardSpeech(round));
   };
 
   // Keyboard: 1-4 answer, Space replays the mystery, Enter continues.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement).tagName === "INPUT") return;
+      const t = e.target as HTMLElement;
+      // Leave browser shortcuts (Ctrl+1 switches tabs) alone; Space and Enter on a focused button or link belong to it.
+      if (e.ctrlKey || e.metaKey || e.altKey || t.tagName === "INPUT") return;
       if (phase === "choose" && /^[1-4]$/.test(e.key)) choose(Number(e.key) - 1);
-      else if (phase === "choose" && e.key === " ") { e.preventDefault(); replay("mystery"); }
-      else if (e.key === "Enter" && (e.target as HTMLElement).tagName !== "BUTTON") {
+      else if (phase === "choose" && e.key === " " && !t.closest("button, a")) { e.preventDefault(); replay("mystery"); }
+      else if (e.key === "Enter" && !t.closest("button, a")) {
         if (phase === "start" || phase === "card") startOrCard();
         else if (phase === "reveal") nextRound();
       }
@@ -210,7 +244,7 @@ export function GameApp() {
             </ol>
             <p className={s.score} aria-live="polite">Score {score}/{ROUNDS.length}</p>
 
-            <section className={s.card} aria-live="polite">
+            <section className={s.card} aria-label="Game">
               {phase === "start" && (
                 <div className={s.center}>
                   <p className={s.kicker}>Hear NASA Earth data</p>
@@ -227,7 +261,7 @@ export function GameApp() {
                   <h1 className={s.h1}>{round.title}</h1>
                   <p className={s.lead}>{round.topic}</p>
                   <p className={s.hint}>{round.learn.text}</p>
-                  <button className={s.primary} onClick={startRound}>
+                  <button className={s.primary} onClick={startRound} autoFocus>
                     <Icon name="icon-play" size={20} /> Listen
                   </button>
                 </div>
@@ -252,12 +286,13 @@ export function GameApp() {
                       playKey={playKey}
                       active={!!current && !current.hidden}
                     />
-                    <ContourView contour={steps[steps.length - 1].contour} label="Mystery" sub="?" hidden playKey={playKey} active={!!current?.hidden} />
+                    <ContourView contour={steps[steps.length - 1].contour} label="Mystery" sub="?" hidden={!seeIt} playKey={playKey} active={!!current?.hidden} />
                   </div>
                   <div className={s.replays}>
                     <button className={s.ghost} onClick={() => replay("demo0")} disabled={phase === "listen"}>How it sounds</button>
                     <button className={s.ghost} onClick={() => replay("ref")} disabled={phase === "listen"}>Replay reference</button>
                     <button className={s.ghostDark} onClick={() => replay("mystery")} disabled={phase === "listen"}>Replay mystery (Space)</button>
+                    <button className={s.ghost} onClick={() => setSeeIt(!seeIt)}>{seeIt ? "Hide" : "Show"} the mystery as a line</button>
                   </div>
                   <div className={s.options} role="group" aria-label="Answers">
                     {round.options.map((o, i) => (
@@ -301,8 +336,8 @@ export function GameApp() {
                       {[{ label: round.reference.label, value: round.reference.value, display: round.reference.display, ref: true }, ...round.options].map((o, i) => {
                         const isAns = i - 1 === round.answer, isPick = i - 1 === choice;
                         return (
-                          <button key={o.label} className={`${s.bar} ${isAns ? s.barAns : ""} ${isPick && !isAns ? s.barPick : ""}`} onClick={() => playContour(contourFor(round, o.value), round.timbre)} aria-label={`Hear ${o.label}, ${o.display}`}>
-                            <span className={s.bLabel}>{o.label}{"ref" in o ? " (ref)" : ""}</span>
+                          <button key={o.label} className={`${s.bar} ${isAns ? s.barAns : ""} ${isPick && !isAns ? s.barPick : ""}`} onClick={() => { stopSpeaking(); playContour(contourFor(round, o.value), round.timbre); }} aria-label={`Hear ${o.label}, ${o.display}${isAns ? ", the answer" : isPick ? ", your pick" : ""}`}>
+                            <span className={s.bLabel}>{o.label}{"ref" in o ? " (ref)" : isAns ? " ✓" : isPick ? " ✗" : ""}</span>
                             <span className={s.bTrack}><span className={s.bFill} style={{ width: `${(Math.abs(o.value) / maxAbs) * 100}%`, opacity: o.value < 0 ? 0.5 : 1 }} /></span>
                             <span className={s.bValue}>{o.display}</span>
                           </button>
@@ -313,7 +348,7 @@ export function GameApp() {
                   </div>
                   <p className={s.takeaway}>{round.takeaway}</p>
                   <p className={s.source}>Data: <a href={round.source.url} target="_blank" rel="noreferrer">{round.source.name}</a></p>
-                  <button className={s.primary} onClick={nextRound}>{ri + 1 < ROUNDS.length ? "Next round" : "See results"}</button>
+                  <button className={s.primary} onClick={nextRound} autoFocus>{ri + 1 < ROUNDS.length ? "Next round" : "See results"}</button>
                 </div>
               )}
 
@@ -329,7 +364,7 @@ export function GameApp() {
                   <p className={s.share}>{share}</p>
                   <div className={s.row}>
                     <button className={s.ghost} onClick={() => navigator.clipboard?.writeText(share)}>Copy result</button>
-                    <button className={s.ghost} onClick={restart}>Play again</button>
+                    <button className={s.ghost} onClick={restart} autoFocus>Play again</button>
                     {tester && <button className={s.ghost} onClick={downloadLog}>Download test results</button>}
                     <Link href="/" className={s.primary}>Explore the globe</Link>
                   </div>
@@ -337,7 +372,7 @@ export function GameApp() {
               )}
             </section>
 
-            <WordCaption text={caption} />
+            <WordCaption text={caption} spoken={voiceOn} />
           </Stage>
         </div>
       </div>

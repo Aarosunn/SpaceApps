@@ -2,9 +2,7 @@
   width: 100vw;
   height: 100vh;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
+  overflow: auto; /* below the smallest scale the page scrolls, so browser zoom makes things bigger */
   background: #0d140f;
 }
 /* The Figma pin (rotated -30deg) is the cursor everywhere, including over buttons and panels.
@@ -16,6 +14,7 @@
 .scaler {
   position: relative;
   flex-shrink: 0;
+  margin: auto; /* centred when it fits, reachable from the top left corner when it does not */
 }
 .hit {
   position: absolute;
