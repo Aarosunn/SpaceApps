@@ -1,0 +1,24 @@
+/* Bottom-left caption. Grows upward and wraps before it reaches the centre player (x = 490). */
+.caption {
+  position: absolute;
+  left: 24px;
+  bottom: 25px;
+  max-width: 450px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 8px 14px 8px 14px;
+  border-radius: 18px;
+  background: var(--ink-80);
+  box-shadow: var(--shadow-panel);
+}
+.text {
+  font-family: var(--sans);
+  font-weight: 500;
+  font-size: 18px;
+  line-height: 22px;
+  color: var(--white);
+  white-space: normal;
+}
+.on { opacity: 1; transition: opacity 140ms ease; }
+.off { opacity: 0; }

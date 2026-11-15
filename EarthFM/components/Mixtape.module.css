@@ -69,8 +69,8 @@
 .numActive { background: var(--ink); color: var(--lime); }
 .numIdle { background: var(--white); border: 2px solid var(--ink); color: var(--ink); }
 .stopText { flex: 1 0 0; min-width: 1px; display: flex; flex-direction: column; gap: 2px; overflow: hidden; }
-.stopName { font-family: var(--sans); font-weight: 600; font-size: 16px; color: var(--ink); }
-.stopSub { font-family: var(--sans); font-weight: 500; font-size: 13px; color: var(--muted); }
+.stopName { display: block; font-family: var(--sans); font-weight: 600; font-size: 16px; color: var(--ink); }
+.stopSub { display: block; font-family: var(--sans); font-weight: 500; font-size: 13px; color: var(--muted); }
 .stopActive .stopSub { color: var(--ink); }
 .actions { display: flex; gap: 8px; align-items: stretch; width: 100%; overflow: hidden; }
 .add {
@@ -141,3 +141,9 @@
 .compact .stopName { font-size: 14px; }
 .compact .stopSub { font-size: 12px; }
 .compact .add, .compact .share { padding-top: 10px; padding-bottom: 10px; }
+
+/* Stop row with a remove button (app). */
+.row { padding-right: 6px; }
+.rowMain { flex: 1 0 0; min-width: 1px; display: flex; align-items: center; gap: inherit; text-align: left; }
+.remove { width: 24px; height: 24px; border-radius: 999px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; opacity: 0.55; }
+.remove:hover, .remove:focus-visible { opacity: 1; background: var(--ink-08); }

@@ -25,6 +25,7 @@ export function Mixtape({
   compact,
   addDisabled,
   emptyText,
+  onRemove,
   children,
 }: {
   meta?: string;
@@ -38,6 +39,7 @@ export function Mixtape({
   compact?: boolean; // smaller stop cards (app); Figma reference screens use the full size
   addDisabled?: boolean;
   emptyText?: string;
+  onRemove?: (n: number) => void; // shows a remove (x) button per stop
   children?: React.ReactNode; // anchored under the actions row (share popover)
 }) {
   return (
@@ -55,17 +57,37 @@ export function Mixtape({
         </div>
       </div>
       {stops.length === 0 && emptyText && <p className={s.empty}>{emptyText}</p>}
-      {stops.map((st) => (
-        <button key={st.n} className={`${s.stop} ${st.active ? s.stopActive : s.stopIdle}`} aria-current={st.active || undefined} onClick={() => onSelect?.(st.n)}>
-          <Icon name="icon-drag" size={16} />
-          <span className={`${s.num} ${st.active ? s.numActive : s.numIdle}`}>{st.n}</span>
-          <span className={s.stopText}>
-            <p className={s.stopName}>{st.name}</p>
-            <p className={s.stopSub}>{st.sub}</p>
-          </span>
-          {st.active && <Icon name="icon-chevron-right" size={18} />}
-        </button>
-      ))}
+      {stops.map((st) => {
+        const body = (
+          <>
+            <Icon name="icon-drag" size={16} />
+            <span className={`${s.num} ${st.active ? s.numActive : s.numIdle}`}>{st.n}</span>
+            <span className={s.stopText}>
+              <span className={s.stopName}>{st.name}</span>
+              <span className={s.stopSub}>{st.sub}</span>
+            </span>
+            {st.active && <Icon name="icon-chevron-right" size={18} />}
+          </>
+        );
+        const cls = `${s.stop} ${st.active ? s.stopActive : s.stopIdle}`;
+        if (!onRemove)
+          return (
+            <button key={st.n} className={cls} aria-current={st.active || undefined} onClick={() => onSelect?.(st.n)}>
+              {body}
+            </button>
+          );
+        // Two sibling buttons (a button inside a button is invalid HTML).
+        return (
+          <div key={st.n} className={`${cls} ${s.row}`}>
+            <button className={s.rowMain} aria-current={st.active || undefined} onClick={() => onSelect?.(st.n)}>
+              {body}
+            </button>
+            <button className={s.remove} aria-label={`Remove ${st.name} from mixtape`} onClick={() => onRemove(st.n)}>
+              <img alt="" width={16} height={16} src={asset("/figma/menu-open/close.svg")} />
+            </button>
+          </div>
+        );
+      })}
       <div className={s.actionsWrap}>
       <div className={s.actions}>
         <button className={s.add} onClick={onAdd} disabled={addDisabled}>
