@@ -2,6 +2,8 @@
    spaceapps-2026/notes/R3-guessing-recon.md (night lights) and R4-eic-datasets.md (sea level, Arctic heat).
    Round 2-3 labels are read off NASA's charts (+-0.3 units); re-check against published numbers before submitting. */
 
+import { FLAGS } from "@/lib/flags";
+
 export type Timbre = "bell" | "water" | "warm" | "fire";
 
 export type Option = { label: string; value: number; display: string; img?: [string, string] };
@@ -24,7 +26,7 @@ export type Round = {
   source: { name: string; url: string };
 };
 
-export const ROUNDS: Round[] = [
+const CORE: Round[] = [
   {
     id: "lights",
     title: "Lights On",
@@ -124,3 +126,35 @@ export const ROUNDS: Round[] = [
     source: { name: "NASA SVS 5207 · GISTEMP Temperature Anomalies 1880–2023 (EIC Climate Vital Signs)", url: "https://svs.gsfc.nasa.gov/5207/" },
   },
 ];
+
+/* Fire round (FLAGS.gameJuice): values read off NASA's bar chart of US burned area (SVS 5453, data: National
+   Interagency Fire Center), +-0.1 million acres; see spaceapps-2026/notes/R4-eic-datasets.md. */
+const FIRE: Round = {
+  id: "fire",
+  title: "Fire Season",
+  topic: "Wildfires in the United States are burning far more land than they used to.",
+  question: "Which year is the mystery fire season?",
+  unit: "million acres burned in the US that year",
+  timbre: "fire",
+  mapping: { kind: "level", semisPerUnit: 1.5 },
+  learn: {
+    text: "More land burned means a higher note and more crackle.",
+    demo: [
+      { label: "Quiet year · 1 M acres", value: 1.1 },
+      { label: "Huge year · 10 M acres", value: 10.1 },
+    ],
+  },
+  reference: { label: "1983", value: 1.3, display: "1.3 M acres" },
+  options: [
+    { label: "2023", value: 2.7, display: "2.7 M acres" },
+    { label: "1988", value: 5.0, display: "5.0 M acres" },
+    { label: "2000", value: 7.4, display: "7.4 M acres" },
+    { label: "2015", value: 10.1, display: "10.1 M acres" },
+  ],
+  answer: 2,
+  reveal: { frames: [{ src: "/game/fire-us.jpg", label: "US burned area, 1983–2025" }] },
+  takeaway: "In 2000, US wildfires burned 7.4 million acres, more than five times the 1983 total. The ten-year average has roughly tripled since the 1980s.",
+  source: { name: "NASA SVS 5453 · Annual Wildfire Burned Area in the US (EIC Wildland Fires)", url: "https://svs.gsfc.nasa.gov/5453/" },
+};
+
+export const ROUNDS: Round[] = FLAGS.gameJuice ? [CORE[0], CORE[1], FIRE, CORE[2]] : CORE;

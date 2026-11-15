@@ -11,6 +11,10 @@ import { audio, contourFor, earcon, playContour, stopAll, type Contour } from "@
 import { ContourView } from "./ContourView";
 import { speak, stopSpeaking } from "@/lib/speech";
 import { getPref } from "@/lib/prefs";
+import { FLAGS } from "@/lib/flags";
+import { canListen, listenOnce } from "@/lib/voice";
+import { MicButton } from "@/components/voice/MicButton";
+import { Confetti } from "./Confetti";
 import s from "./Game.module.css";
 
 const W = 1440, H = 900;
@@ -44,7 +48,12 @@ function useFitScale() {
   return k;
 }
 
-type Result = { round: string; choice: string; correct: boolean; ms: number; replays: number };
+type Result = { round: string; choice: string; correct: boolean; ms: number; replays: number; points: number };
+
+/* Points: 100 for a correct answer, +50 if you got it on the first listen, +25 for each correct answer in a row before it. */
+export const pointsFor = (correct: boolean, replays: number, streakBefore: number) => (correct ? 100 + (replays === 0 ? 50 : 0) + 25 * streakBefore : 0);
+
+const NUMBER_WORDS: Record<string, number> = { one: 1, won: 1, first: 1, two: 2, to: 2, too: 2, second: 2, three: 3, third: 3, four: 4, for: 4, fourth: 4 };
 
 export function GameApp() {
   const scale = useFitScale();
@@ -57,6 +66,13 @@ export function GameApp() {
   const [frame, setFrame] = useState(0);
   const [caption, setCaption] = useState("Put your headphones on. Each round: listen, then guess.");
   const [seeIt, setSeeIt] = useState(false); // draw the mystery sound as a line, for players who cannot hear it
+  const [streak, setStreak] = useState(0); // correct answers in a row
+  const [gained, setGained] = useState(0); // points from the last answer
+  const [burst, setBurst] = useState(0); // confetti trigger
+  const [shake, setShake] = useState(0); // wrong-answer shake trigger
+  const [mixAt, setMixAt] = useState(-1); // "play my mix": which round's answer is sounding
+  const [listening, setListening] = useState(false);
+  const stopListening = useRef<() => void>(() => {});
   // The voice setting from the globe. It speaks between the sounds, never over them (the sounds are the question).
   const [voiceOn, setVoiceOn] = useState(false);
   const voice = useRef(false);
@@ -135,12 +151,16 @@ export function GameApp() {
     const correct = i === round.answer;
     earcon(correct ? "correct" : "wrong");
     setChoice(i);
-    setResults((r) => [...r, { round: round.id, choice: round.options[i].label, correct, ms: Math.round(performance.now() - shownAt.current), replays: replays.current }]);
+    const pts = FLAGS.gameJuice ? pointsFor(correct, replays.current, streak) : 0;
+    setResults((r) => [...r, { round: round.id, choice: round.options[i].label, correct, ms: Math.round(performance.now() - shownAt.current), replays: replays.current, points: pts }]);
+    setGained(pts);
+    setStreak(correct ? streak + 1 : 0);
+    if (FLAGS.gameJuice) (correct ? setBurst : setShake)((k) => k + 1);
     replays.current = 0;
     setFrame(0);
     setPhase("reveal");
     tell(`${correct ? "Correct!" : `Not quite. It was ${round.options[round.answer].label}.`} ${round.takeaway}`);
-  }, [phase, round]);
+  }, [phase, round, streak]);
 
   const nextRound = () => {
     stopAll();
@@ -157,6 +177,8 @@ export function GameApp() {
 
   const restart = () => {
     setRi(0);
+    setStreak(0);
+    setMixAt(-1);
     setResults([]);
     setChoice(null);
     setPhase("card");
@@ -200,13 +222,73 @@ export function GameApp() {
     tell(round.topic, cardSpeech(round));
   };
 
+  // "Play my mix": the answers of all rounds back to back, each on its own instrument: the player's Earth mixtape.
+  const playMix = () => {
+    clearTimers();
+    stopAll();
+    stopSpeaking();
+    let t = 0;
+    ROUNDS.forEach((r, i) => {
+      const k = contourFor(r, r.options[r.answer].value);
+      timers.current.push(setTimeout(() => { setMixAt(i); setCaption(`${r.title}: ${r.options[r.answer].label}, ${r.options[r.answer].display}.`); playContour(k, r.timbre); }, t));
+      t += k.dur * 1000 + 350;
+    });
+    timers.current.push(setTimeout(() => setMixAt(-1), t));
+  };
+
+  // Voice: say the number or the name of an answer, "again" to replay, "next" to go on (V key or the microphone button).
+  const hear = (alts: string[]) => {
+    for (const raw of alts) {
+      const t = raw.toLowerCase().replace(/[.,!?]/g, "").trim();
+      if (phase === "choose") {
+        const n = Number(t.match(/\b([1-4])\b/)?.[1]) || t.split(" ").map((w) => NUMBER_WORDS[w]).find(Boolean);
+        if (n && n <= round.options.length) return choose(n - 1);
+        const byName = round.options.findIndex((o) => t.includes(o.label.toLowerCase()));
+        if (byName >= 0) return choose(byName);
+        if (/again|replay|repeat|mystery/.test(t)) return replay("mystery");
+        if (/reference/.test(t)) return replay("ref");
+      }
+      if (/next|continue|start|listen|go|play/.test(t)) {
+        if (phase === "start" || phase === "card") return startOrCard();
+        if (phase === "reveal") return nextRound();
+        if (phase === "end") return restart();
+      }
+    }
+    tell(phase === "choose" ? `I heard "${alts[0] ?? ""}". Say a number from 1 to ${round.options.length}, or "again".` : `I heard "${alts[0] ?? ""}". Say "next" to go on.`);
+  };
+  const toggleListening = () => {
+    if (listening) {
+      stopListening.current();
+      return setListening(false);
+    }
+    if (!canListen()) return tell("Voice answers need Chrome, Edge or Safari. Use the keys 1 to 4 instead.");
+    stopSpeaking();
+    setListening(true);
+    setCaption('Listening… say a number, "again" or "next".');
+    stopListening.current = listenOnce(
+      (text) => setCaption(`Heard: "${text}"`),
+      (alts, error) => {
+        setListening(false);
+        if (error === "not-allowed" || error === "service-not-allowed") return tell("The microphone is blocked. Allow it in the address bar, or use the keys 1 to 4.");
+        if (!alts.length) return tell("I didn't hear anything. Press V and try again.");
+        hearRef.current(alts);
+      },
+    );
+  };
+  const hearRef = useRef<(alts: string[]) => void>(() => {});
+  useEffect(() => {
+    hearRef.current = hear;
+  });
+  useEffect(() => () => stopListening.current(), []);
+
   // Keyboard: 1-4 answer, Space replays the mystery, Enter continues.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement;
       // Leave browser shortcuts (Ctrl+1 switches tabs) alone; Space and Enter on a focused button or link belong to it.
       if (e.ctrlKey || e.metaKey || e.altKey || t.tagName === "INPUT") return;
-      if (phase === "choose" && /^[1-4]$/.test(e.key)) choose(Number(e.key) - 1);
+      if (FLAGS.voiceControl && e.key.toLowerCase() === "v") toggleListening();
+      else if (phase === "choose" && /^[1-4]$/.test(e.key)) choose(Number(e.key) - 1);
       else if (phase === "choose" && e.key === " " && !t.closest("button, a")) { e.preventDefault(); replay("mystery"); }
       else if (e.key === "Enter" && !t.closest("button, a")) {
         if (phase === "start" || phase === "card") startOrCard();
@@ -218,7 +300,8 @@ export function GameApp() {
   });
 
   const score = results.filter((r) => r.correct).length;
-  const share = `EarthFM · ${ROUNDS.map((r, i) => `${r.title} ${results[i]?.correct ? "✅" : "❌"}`).join(" · ")} · ${score}/${ROUNDS.length}`;
+  const points = results.reduce((a, r) => a + (r.points ?? 0), 0);
+  const share = `EarthFM · ${ROUNDS.map((r, i) => `${r.title} ${results[i]?.correct ? "✅" : "❌"}`).join(" · ")} · ${score}/${ROUNDS.length}${FLAGS.gameJuice ? ` · ${points} pts` : ""}`;
   const maxAbs = Math.max(...round.options.map((o) => Math.abs(o.value)), Math.abs(round.reference.value), 1);
 
   return (
@@ -242,14 +325,19 @@ export function GameApp() {
                 </li>
               ))}
             </ol>
-            <p className={s.score} aria-live="polite">Score {score}/{ROUNDS.length}</p>
+            <p className={s.score} aria-live="polite">
+              Score {score}/{ROUNDS.length}
+              {FLAGS.gameJuice && <> · {points} pts{streak > 1 && <span className={s.streak}> · 🔥 {streak} in a row</span>}</>}
+            </p>
+            {FLAGS.voiceControl && <MicButton listening={listening} onClick={toggleListening} left={262} top={24} />}
+            {FLAGS.gameJuice && <Confetti burst={burst} />}
 
-            <section className={s.card} aria-label="Game">
+            <section key={`shake-${shake}`} className={`${s.card} ${shake ? s.shake : ""}`} aria-label="Game">
               {phase === "start" && (
                 <div className={s.center}>
                   <p className={s.kicker}>Hear NASA Earth data</p>
                   <h1 className={s.h1}>Can you read the planet by ear?</h1>
-                  <p className={s.lead}>Three rounds. Each one plays a reference sound and a mystery sound made from NASA Earth Information Center data. Match the mystery to its value.</p>
+                  <p className={s.lead}>{ROUNDS.length === 4 ? "Four" : "Three"} rounds. Each one plays a reference sound and a mystery sound made from NASA Earth Information Center data. Match the mystery to its value.</p>
                   <p className={s.hint}>🎧 Headphones on · keys 1–4 to answer · Space to replay</p>
                   <button className={s.primary} onClick={startOrCard}>Start</button>
                 </div>
@@ -311,6 +399,7 @@ export function GameApp() {
                   <p className={`${s.verdict} ${choice === round.answer ? s.win : s.miss}`}>
                     {choice === round.answer ? "Correct!" : `Not quite: it was ${round.options[round.answer].label}`}
                   </p>
+                  {FLAGS.gameJuice && gained > 0 && <span className={s.points}>+{gained} pts{results[results.length - 1]?.replays === 0 ? " · first listen" : ""}{streak > 1 ? ` · 🔥 ${streak} in a row` : ""}</span>}
                   <h2 className={s.h2}>{round.title}</h2>
                   <div className={s.revealGrid}>
                     <div className={s.media}>
@@ -361,6 +450,14 @@ export function GameApp() {
                       <li key={r.id}>{results[i]?.correct ? "✅" : "❌"} <b>{r.title}</b> · {r.options[r.answer].label} ({r.options[r.answer].display})</li>
                     ))}
                   </ul>
+                  {FLAGS.gameJuice && (
+                    <>
+                      <ol className={s.mixList} aria-label="Your Earth mix">
+                        {ROUNDS.map((r, i) => <li key={r.id} className={i === mixAt ? s.mixOn : ""}>{r.title}</li>)}
+                      </ol>
+                      <button className={s.ghostDark} onClick={playMix}>▶ Play my Earth mix</button>
+                    </>
+                  )}
                   <p className={s.share}>{share}</p>
                   <div className={s.row}>
                     <button className={s.ghost} onClick={() => navigator.clipboard?.writeText(share)}>Copy result</button>

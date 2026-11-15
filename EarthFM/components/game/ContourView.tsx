@@ -1,4 +1,5 @@
 import type { Contour } from "@/lib/game/audio";
+import { FLAGS } from "@/lib/flags";
 import s from "./Game.module.css";
 
 const WIDTH = 360, HEIGHT = 110, RANGE = 18; // semitones shown top-to-bottom: +18 .. -18
@@ -18,6 +19,15 @@ export function ContourView({ contour, label, sub, hidden, playKey, active }: {
   const d = contour ? `M10 ${yOf(contour.from).toFixed(1)} L${WIDTH - 10} ${yOf(contour.to).toFixed(1)}` : "";
   return (
     <figure className={`${s.contour} ${active ? s.contourActive : ""}`} aria-hidden="true">
+      {/* The mystery sound is a record on the jukebox: it spins while it plays, and its label keeps the secret. */}
+      {hidden && FLAGS.gameJuice ? (
+        <div className={s.deck}>
+          <div key={playKey} className={`${s.record} ${active ? s.spin : ""}`}>
+            <span className={s.recordLabel}>?</span>
+          </div>
+          <div className={`${s.arm} ${active ? s.armOn : ""}`} />
+        </div>
+      ) : (
       <svg width={WIDTH} height={HEIGHT} viewBox={`0 0 ${WIDTH} ${HEIGHT}`}>
         <line x1="10" x2={WIDTH - 10} y1={HEIGHT / 2} y2={HEIGHT / 2} className={s.axis} />
         {contour && !hidden && (
@@ -29,6 +39,7 @@ export function ContourView({ contour, label, sub, hidden, playKey, active }: {
           ))}
         {hidden && !active && <text x={WIDTH / 2} y={HEIGHT / 2 + 12} textAnchor="middle" className={s.q}>?</text>}
       </svg>
+      )}
       <figcaption>
         <span className={s.cLabel}>{label}</span>
         {sub && <span className={s.cSub}>{sub}</span>}
