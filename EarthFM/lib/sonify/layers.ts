@@ -14,6 +14,7 @@ export type Layer = {
   images: string; // folder of 0.jpg, 1.jpg, ... (one per date)
   unit: string;
   decimals: number;
+  numbers: boolean; // false = describe this layer in words only (no figures in the caption, picture or pop-up)
   noData: string; // what a silent square is called in the readout
   higher: string; // what a higher note means, to finish "Higher notes are ..."
   words: [low: string, mid: string, high: string]; // short caption words for low, middle and high values
@@ -27,7 +28,7 @@ export type Layer = {
 export const LAYERS: Record<LayerId, Layer> = {
   sst: {
     id: "sst", label: "Sea heat", menu: "Sea heat", file: "/sonify/sst-global.json", images: "/sonify/sst",
-    unit: " °C", decimals: 1, noData: "Land", higher: "warmer water", words: ["cold water", "mild water", "warm water"],
+    unit: " °C", decimals: 1, numbers: true, noData: "Land", higher: "warmer water", words: ["cold water", "mild water", "warm water"],
     picture: "A sea-surface-temperature map from NASA's Scientific Visualization Studio (SVS 3912).",
     reading: "Each pixel's colour is matched to NASA's colour bar (blue 0 °C to red 32 °C) to read a temperature.",
     silence: "A square with no ocean plays nothing, so you can hear the coastline as gaps.",
@@ -36,16 +37,16 @@ export const LAYERS: Record<LayerId, Layer> = {
   },
   fires: {
     id: "fires", label: "Wildfires", menu: "Wildfires", file: "/sonify/fires-global.json", images: "/sonify/fires",
-    unit: " fire px/1000", decimals: 1, noData: "No fire", higher: "more fire", words: ["a little fire", "steady fire", "heavy fire"],
+    unit: "", decimals: 1, numbers: false, noData: "No fire", higher: "more fire", words: ["a little fire", "steady fire", "heavy fire"],
     picture: "A map of active fires seen by the VIIRS satellite instruments, from NASA's Scientific Visualization Studio (SVS 5113).",
-    reading: "Fires are drawn as bright red-to-yellow dots on a dark map. In each square we count how many pixels out of every 1000 are fire.",
+    reading: "Fires are drawn as bright red-to-yellow dots on a dark map. For each square we measure how much of it is lit up by fire.",
     silence: "A square with no fire plays nothing, so quiet stretches are places and seasons without burning.",
-    limits: "This counts fire pixels in NASA's picture, not hectares burned, and each picture covers a five-day window. Small fires and fires under cloud are missed.",
+    limits: "This measures how much fire shows in NASA's picture, not the area burned, and each picture covers a five-day window. Small fires and fires under cloud are missed.",
     credit: "NASA Scientific Visualization Studio, svs.gsfc.nasa.gov/5113",
   },
   heat: {
     id: "heat", label: "Global heat", menu: "Global heat", file: "/sonify/heat-global.json", images: "/sonify/heat",
-    unit: " °C vs 1951–80", decimals: 2, noData: "No data", higher: "hotter than the 1951–1980 average", words: ["cooler than normal", "near normal", "hotter than normal"],
+    unit: " °C vs 1951–80", decimals: 2, numbers: true, noData: "No data", higher: "hotter than the 1951–1980 average", words: ["cooler than normal", "near normal", "hotter than normal"],
     picture: "A map of surface temperature change (NASA GISTEMP) from NASA's Scientific Visualization Studio (SVS 5207).",
     reading: "Each pixel's colour is matched to NASA's colour bar (blue −2 °C, white 0, red +2 °C) to read how far that spot is from its 1951–1980 average.",
     silence: "A square with no measurements plays nothing.",

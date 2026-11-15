@@ -114,11 +114,13 @@ export function recipeFor(tl: Timeline, p: Place, layer: Layer, mode: SonMode): 
       const r = rowRange[k];
       if (!r) return `Silent: ${layer.noData.toLowerCase()} in this row.`;
       const b = band((r[0] + r[1]) / 2);
+      if (!layer.numbers) return `${PITCH[b]} notes: ${layer.words[b]}.`;
       return `${PITCH[b]} notes: ${layer.words[b]}, ${round(r[0])} to ${round(r[1])}${layer.unit}.`;
     }
     if (st.value === null) return `Silent: ${layer.noData.toLowerCase()} here.`;
     const before = steps[Math.max(0, k - 16)].value ?? st.value, d = st.value - before; // against 4 seconds ago
     const b = band(st.value), moving = Math.abs(d) < 0.004 ? "steady" : d > 0 ? "rising" : "falling";
+    if (!layer.numbers) return `${PITCH[b]} notes, ${moving}: ${layer.words[b]}.`;
     return `${PITCH[b]} notes, ${moving}: ${layer.words[b]}, ${round(st.value)}${layer.unit}.`;
   };
   return {

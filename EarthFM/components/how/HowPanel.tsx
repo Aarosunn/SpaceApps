@@ -6,7 +6,7 @@
    Everything shown comes from recipeFor() in lib/sonify/useJukebox.ts, the same song the player is given,
    so the picture cannot drift from the sound. */
 import { useEffect, useRef, useState } from "react";
-import { VIEW_COLS, VIEW_ROWS, prettyDate, type SoundRecipe } from "@/lib/sonify/useJukebox";
+import { VIEW_COLS, VIEW_ROWS, type SoundRecipe } from "@/lib/sonify/useJukebox";
 import { asset } from "@/components/asset";
 import s from "./HowPanel.module.css";
 
@@ -23,7 +23,6 @@ const CW = 352, CELL = CW / VIEW_COLS, CH = CELL * VIEW_ROWS;
 export function HowPanel({ placeName, recipe, live, getTime, onClose }: Props) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const [help, setHelp] = useState(false);
-  const [now, setNow] = useState({ value: "", note: "", date: "" });
 
   // Close the pop-up with Escape.
   useEffect(() => {
@@ -49,7 +48,7 @@ export function HowPanel({ placeName, recipe, live, getTime, onClose }: Props) {
       im.onload = () => draw();
       return im;
     });
-    let raf = 0, last = "", shown = -1;
+    let raf = 0, shown = -1;
     function draw() {
       const t = live ? getTime() : 0;
       const st = r.stepAt(t), f = r.frames[st.frame];
@@ -72,7 +71,7 @@ export function HowPanel({ placeName, recipe, live, getTime, onClose }: Props) {
           const x = cc * CELL, y = rr * CELL, v = f.grid[(r0 + rr) * cols + (c0 + cc)];
           g.strokeStyle = "rgba(244,241,232,0.3)";
           g.strokeRect(x + 0.5, y + 0.5, CELL, CELL);
-          if (v > 0.02) {
+          if (v > 0.02 && r.layer.numbers) {
             g.fillStyle = "rgba(23,32,26,0.6)";
             g.fillRect(x + 4, y + CELL / 2 - 8, CELL - 8, 16);
             g.fillStyle = "#f4f1e8";
@@ -89,11 +88,6 @@ export function HowPanel({ placeName, recipe, live, getTime, onClose }: Props) {
         g.strokeRect(x + 1.5, y + 1.5, CELL - 3, CELL - 3);
       } else g.strokeRect(1.5, 1.5, CW - 3, CH - 3);
 
-      const next = `${st.value}|${st.note}|${f.date}`;
-      if (next !== last) {
-        last = next;
-        setNow({ value: st.value === null ? r.layer.noData : r.fmt(st.value), note: st.note ?? "rest", date: prettyDate(f.date) });
-      }
       if (live) raf = requestAnimationFrame(draw);
     }
     draw();
@@ -124,18 +118,10 @@ export function HowPanel({ placeName, recipe, live, getTime, onClose }: Props) {
           role="img"
           aria-label={
             r
-              ? `NASA ${r.layer.label.toLowerCase()} picture around ${placeName}, cut into ${VIEW_COLS} by ${VIEW_ROWS} squares of 10 degrees with the value in each. ${area ? "A highlighted square moves across it, left to right and top to bottom: that is the square being played." : "The whole picture is outlined: its average is what is being played, as the dates advance."}`
+              ? `NASA ${r.layer.label.toLowerCase()} picture around ${placeName}, cut into ${VIEW_COLS} by ${VIEW_ROWS} squares of 10 degrees. ${area ? "A highlighted square moves across it, left to right and top to bottom: that is the square being played." : "The whole picture is outlined: its average is what is being played, as the dates advance."}`
               : "Loading the data"
           }
         />
-        {r && (
-          <div className={s.readout} role="status" aria-live="off">
-            <span className={s.big}>{now.value}</span>
-            <span className={s.arrow} aria-hidden="true">→</span>
-            <span className={s.note}>{now.note}</span>
-            <span className={s.date}>{now.date}</span>
-          </div>
-        )}
         <p className={s.hint}>
           {!r
             ? "Loading the data…"
@@ -165,9 +151,13 @@ export function HowPanel({ placeName, recipe, live, getTime, onClose }: Props) {
               ) : (
                 <li><b>By time: the whole picture.</b> The melody follows the average of all the squares in the picture, and one song runs from the first date to the last. You hear how this region changes over time rather than how it varies from place to place.</li>
               )}
-              <li><b>Number → pitch.</b> Higher notes are {r.layer.higher}. {r.fmt(r.lo)} is the lowest note ({r.scale[0]}) and {r.fmt(r.hi)} the highest ({r.scale[r.scale.length - 1]}), in {r.scale.length} steps. The range is the same everywhere, so two places can be compared by ear.</li>
+              {r.layer.numbers ? (
+                <li><b>Number → pitch.</b> Higher notes are {r.layer.higher}. {r.fmt(r.lo)} is the lowest note ({r.scale[0]}) and {r.fmt(r.hi)} the highest ({r.scale[r.scale.length - 1]}), in {r.scale.length} steps. The range is the same everywhere, so two places can be compared by ear.</li>
+              ) : (
+                <li><b>Amount → pitch.</b> Higher notes are {r.layer.higher}. The lowest note ({r.scale[0]}) is the least and the highest ({r.scale[r.scale.length - 1]}) the most, in {r.scale.length} steps. The scale is the same everywhere, so two places can be compared by ear.</li>
+              )}
               <li><b>Silence.</b> {r.layer.silence}</li>
-              <li><b>Reference blip and background tone.</b> A short fixed note every {r.barSeconds} seconds marks the middle of the range ({r.fmt((r.lo + r.hi) / 2)}). A soft drone follows the average of the whole picture: louder and brighter when it is higher.</li>
+              <li><b>Reference blip and background tone.</b> A short fixed note every {r.barSeconds} seconds marks the middle of the range{r.layer.numbers ? ` (${r.fmt((r.lo + r.hi) / 2)})` : ""}. A soft drone follows the average of the whole picture: louder and brighter when it is higher.</li>
             </ol>
             <p className={s.limit}><b>Limits.</b> {r.layer.limits} All sound is synthesized in your browser; nothing is recorded.</p>
             <p className={s.credit}>Data: {r.layer.credit}</p>
