@@ -539,7 +539,6 @@ export function EarthApp() {
             {!menuOpen && howOpen && how && (
               <HowPanel
                 placeName={how.name}
-                surface={how.surface}
                 recipe={recipe?.name === how.name ? recipe.data : null}
                 live={!flight && nowPlaying?.name === how.name}
                 getTime={jb.time}
