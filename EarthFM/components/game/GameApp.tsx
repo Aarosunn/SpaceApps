@@ -64,7 +64,6 @@ export function GameApp() {
   const [results, setResults] = useState<Result[]>([]);
   const [frame, setFrame] = useState(0);
   const [caption, setCaption] = useState("Put your headphones on. Each round: listen, then guess.");
-  const [seeIt, setSeeIt] = useState(false); // draw the mystery sound as a line, for players who cannot hear it
   const [streak, setStreak] = useState(0); // correct answers in a row
   const [gained, setGained] = useState(0); // points from the last answer
   const [burst, setBurst] = useState(0); // confetti trigger
@@ -158,7 +157,7 @@ export function GameApp() {
     replays.current = 0;
     setFrame(0);
     setPhase("reveal");
-    tell(`${correct ? "Correct!" : `Not quite. It was ${round.options[round.answer].label}.`} ${round.takeaway}`);
+    tell(`${correct ? "Correct!" : `Not quite. It was ${round.options[round.answer].label}.`} ${round.takeaway} ${round.why}`);
   }, [phase, round, streak]);
 
   const nextRound = () => {
@@ -372,12 +371,11 @@ export function GameApp() {
                       playKey={playKey}
                       active={!!current && !current.hidden}
                     />
-                    <ContourView contour={steps[steps.length - 1].contour} label="Mystery" sub="?" hidden={!seeIt} playKey={playKey} active={!!current?.hidden} />
+                    <ContourView contour={steps[steps.length - 1].contour} label="Mystery" sub="?" hidden playKey={playKey} active={!!current?.hidden} />
                   </div>
                   <div className={s.replays}>
                     <button className={s.ghost} onClick={() => replay("demo0")} disabled={phase === "listen"}>How it sounds</button>
                     <button className={s.ghostDark} onClick={() => replay("mystery")} disabled={phase === "listen"}>Replay mystery (Space)</button>
-                    <button className={s.ghost} onClick={() => setSeeIt(!seeIt)}>{seeIt ? "Hide" : "Show"} the mystery as a line</button>
                   </div>
                   <div className={s.options} role="group" aria-label="Answers">
                     {round.options.map((o, i) => (
@@ -433,6 +431,7 @@ export function GameApp() {
                     </div>
                   </div>
                   <p className={s.takeaway}>{round.takeaway}</p>
+                  <p className={s.why}><b>Why it matters:</b> {round.why}</p>
                   <p className={s.source}>Data: <a href={round.source.url} target="_blank" rel="noreferrer">{round.source.name}</a></p>
                   <button className={s.primary} onClick={nextRound} autoFocus>{ri + 1 < ROUNDS.length ? "Next round" : "See results"}</button>
                 </div>

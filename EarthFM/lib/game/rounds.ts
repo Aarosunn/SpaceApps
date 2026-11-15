@@ -22,7 +22,8 @@ export type Round = {
   options: Option[];
   answer: number; // index into options
   reveal: { frames: { src: string; label: string }[]; brighten?: boolean };
-  takeaway: string;
+  takeaway: string; // what the data showed
+  why: string; // why it matters, in one or two short sentences
   source: { name: string; url: string };
 };
 
@@ -51,7 +52,8 @@ const CORE: Round[] = [
     ],
     answer: 0,
     reveal: { frames: [], brighten: true },
-    takeaway: "Nairobi's night lights grew 170% between 2012 and 2023, the biggest jump of the four. Lights track people and power: new homes, roads and grid connections.",
+    takeaway: "Nairobi's night lights grew 170% from 2012 to 2023, the biggest jump of the four.",
+    why: "New lights show where homes and streets are getting electricity. They also mean more energy use and less dark sky.",
     source: { name: "NASA SVS 5313 · Change in Night Lights 2012–2023 (EIC)", url: "https://svs.gsfc.nasa.gov/5313/" },
   },
   {
@@ -86,7 +88,8 @@ const CORE: Round[] = [
         { src: "/game/sea-2023.jpg", label: "2023 · +11.3 cm" },
       ],
     },
-    takeaway: "Global sea level rose about 11 cm from 1993 to 2023, and it is speeding up: about 3 cm in the first decade, nearly 5 cm in the last.",
+    takeaway: "Global sea level rose about 11 cm from 1993 to 2023, and the rise is speeding up.",
+    why: "Melting ice and warming, expanding water push the sea higher. Every extra centimetre lets storm floods reach further inland.",
     source: { name: "NASA SVS 5235 · Sea Level Through a Porthole (EIC Climate Vital Signs)", url: "https://svs.gsfc.nasa.gov/5235/" },
   },
   {
@@ -122,7 +125,8 @@ const CORE: Round[] = [
         { src: "/game/heat-2023.jpg", label: "2023" },
       ],
     },
-    takeaway: "By 2016 the Arctic band was 2 °C or more above its 1951–80 average, off the top of NASA's colour scale. The planet's top is warming fastest.",
+    takeaway: "By 2016 the Arctic was 2 °C or more above its 1951–80 average, off the top of NASA's colour scale.",
+    why: "Melting snow and ice uncover darker land and sea, which soak up more heat. That is why the Arctic warms faster than the rest of the planet.",
     source: { name: "NASA SVS 5207 · GISTEMP Temperature Anomalies 1880–2023 (EIC Climate Vital Signs)", url: "https://svs.gsfc.nasa.gov/5207/" },
   },
 ];
@@ -153,7 +157,10 @@ const FIRE: Round = {
   ],
   answer: 2,
   reveal: { frames: [{ src: "/game/fire-us.jpg", label: "US burned area, 1983–2025" }] },
-  takeaway: "In 2000, US wildfires burned 7.4 million acres, more than five times the 1983 total. The ten-year average has roughly tripled since the 1980s.",
+  takeaway: "US wildfires burned 7.4 million acres in 2000, more than five times the 1983 total.",
+  // NASA's own wording (SVS 14606, "NASA and Fire"): fires "have increased in frequency and size due to longer fire seasons,
+  // climate change, and the expanding interface between communities and wild vegetation".
+  why: "NASA links bigger fires to longer fire seasons, a warming climate, and more homes built next to wild land.",
   source: { name: "NASA SVS 5453 · Annual Wildfire Burned Area in the US (EIC Wildland Fires)", url: "https://svs.gsfc.nasa.gov/5453/" },
 };
 

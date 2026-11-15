@@ -25,12 +25,24 @@ export const freq = (semis: number, base = BASE) => base * 2 ** (semis / 12);
 export const snap = (semis: number): number => core.quantizeToScale(BASE_MIDI + semis, BASE_MIDI, SCALE);
 
 /* A sound = a pitch contour over time: start and end semitones (equal for a steady tone). */
-export type Contour = { from: number; to: number; dur: number };
+/* lo / hi: the lowest and highest pitch (semitones) any value of this round reaches, so a note knows how high it sits in the round. */
+export type Contour = { from: number; to: number; dur: number; lo?: number; hi?: number };
+
+const endSemis = (round: Round, value: number) => (round.mapping.kind === "change" ? semisForChange(value) : value * round.mapping.semisPerUnit);
 
 export function contourFor(round: Round, value: number): Contour {
-  if (round.mapping.kind === "change") return { from: 0, to: semisForChange(value), dur: 1.75 };
-  const s = value * round.mapping.semisPerUnit;
-  return { from: s, to: s, dur: 1.5 };
+  // the round's own range: every option and every "how it sounds" example (a change round also starts from 0)
+  const ends = [...round.options, ...round.learn.demo].map((o) => endSemis(round, o.value));
+  if (round.mapping.kind === "change") ends.push(0);
+  const lo = Math.min(...ends), hi = Math.max(...ends), s = endSemis(round, value);
+  return round.mapping.kind === "change" ? { from: 0, to: s, dur: 1.75, lo, hi } : { from: s, to: s, dur: 1.5, lo, hi };
+}
+
+/* Where note i of a contour sits in the round's range, 0..1: drives how full the band is. */
+export function levelAt(k: Contour, i: number, n: number): number {
+  if (k.lo === undefined || k.hi === undefined || k.hi === k.lo) return 0.5;
+  const semis = k.from + ((k.to - k.from) * i) / Math.max(1, n - 1);
+  return Math.max(0, Math.min(1, (semis - k.lo) / (k.hi - k.lo)));
 }
 
 /* The notes a contour is played as: one per quarter second, walking evenly from `from` to `to`, each snapped to the scale. */
@@ -40,7 +52,7 @@ export function notesFor(k: Contour): number[] {
 }
 
 /* ---- engine (shared with the globe) ---- */
-type Eng = { setMaster: (g: number, t: number) => void; setPad: (p: { gain: number; cutoff?: number }, t: number, tau?: number) => void; play: (ev: object, t: number) => void; start: (t: number) => void; setVoice?: (v: VoiceId) => void; level?: () => number };
+type Eng = { setMaster: (g: number, t: number) => void; setPad: (p: { gain: number; cutoff?: number }, t: number, tau?: number) => void; play: (ev: object, t: number) => void; start: (t: number) => void; setVoice?: (v: VoiceId) => void; level?: () => number; accompany?: (level: number, t: number, i: number, midi: number) => void };
 /* Round timbre -> instrument (lib/sonify/instruments.ts): the same voices the globe uses for its data layers. */
 const TIMBRE_VOICE: Record<Timbre, VoiceId> = { bell: "bell", water: "water", warm: "warm", fire: "fire" };
 let ready: Promise<{ Tone: typeof import("tone"); engine: Eng }> | null = null;
@@ -89,7 +101,10 @@ export function playContour(k: Contour, timbre: Timbre, when = 0) {
           const u = core.clamp((midi - (BASE_MIDI - 12)) / 36);
           engine.setPad({ gain: core.scaleLinear(u, map.padMinGain, map.padMaxGain), cutoff: core.scaleExp(u, map.padMinHz, map.padMaxHz) }, t, 0.08);
           if (i === 0) engine.play({ kind: "ref", midi: snap(0) + 12 }, t); // reference blip marks the start, as on the globe
-          engine.play({ kind: "lead", midi, vel: i % 4 === 0 ? 0.9 : 0.6, pan, dur: STEP * 0.8, u }, t);
+          // the instrument's own cue (crackle count, wave size, brightness) follows the value's place in the round
+          const level = FLAGS.gameBand ? levelAt(k, i, notes.length) : u;
+          engine.play({ kind: "lead", midi, vel: i % 4 === 0 ? 0.9 : 0.6, pan, dur: STEP * 0.8, u: level }, t);
+          if (FLAGS.gameBand) engine.accompany?.(level, t, i, midi);
         }, (when + i * STEP) * 1000),
       );
     });
@@ -116,6 +131,7 @@ export function selfCheck() {
   console.assert(semisForChange(-2) < 0 && semisForChange(-2) > -1, "Johannesburg nearly flat");
   console.assert(Math.abs(freq(12) - 2 * BASE) < 1e-9, "octave");
   console.assert(snap(0) === 60 && snap(12) === 72 && snap(1) === 60 && snap(6) !== 66, "snaps to the pentatonic scale");
+  console.assert(levelAt({ from: 0, to: 10, dur: 1, lo: 0, hi: 10 }, 0, 5) === 0 && levelAt({ from: 0, to: 10, dur: 1, lo: 0, hi: 10 }, 4, 5) === 1, "level runs from the round's lowest to its highest");
   const flat = notesFor({ from: 0, to: 0, dur: 1.75 });
   console.assert(flat.every((m) => m === flat[0]), "no change stays on one note");
 }

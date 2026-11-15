@@ -2,8 +2,8 @@
    Same interface as createEngine() in jukebox-engine.js (start, setMaster, setPad, play), so the player and the
    game drive it unchanged. All sound is synthesised live with Tone.js; there are no samples.
 
-     water  sea heat, sea level   soft FM mallets that glide, over a slow swell and surf noise   C major pentatonic
-     fire   wildfires             dry plucks with crackle (more fire = more crackle), over a low roar   A minor pentatonic
+     water  sea heat, sea level   soft FM mallets that glide, waves that wash in (higher = bigger waves), surf   C major pentatonic
+     fire   wildfires             woody pops with crackle (more fire = more crackle), over a low roar   A minor pentatonic
      warm   global heat           a brassy swell that gets brighter as it gets hotter, over a fifth drone   D dorian
      bell   night lights          glassy FM bells with a long shimmer                                   C major pentatonic
 */
@@ -19,14 +19,17 @@ export const VOICE_MAP: Record<VoiceId, { scale: string; rootMidi: number }> = {
 };
 
 export const VOICE_WORDS: Record<VoiceId, string> = {
-  water: "soft mallets over a slow ocean swell",
-  fire: "dry plucks and crackle over a low roar",
+  water: "soft mallets over washing waves",
+  fire: "woody pops and crackle over a low roar",
   warm: "a brassy swell that brightens as it heats",
   bell: "glassy bells",
 };
 
-/* How many crackles one fire note gets: none for a trace of fire, up to 3 for the heaviest. Pure, checked in selfCheck. */
-export const cracklesFor = (u: number) => Math.round(Math.max(0, Math.min(1, u)) * 3);
+/* How many crackles one fire note gets: none for a trace of fire, up to 6 for the heaviest. Pure, checked in selfCheck. */
+export const cracklesFor = (u: number) => Math.round(Math.max(0, Math.min(1, u)) * 6);
+
+/* The band that joins the lead as the level (0..1) rises: bass, then hi-hat, then kick, then sparkle. Pure, checked in selfCheck. */
+export const bandFor = (level: number) => ({ bass: level > 0.2, hat: level > 0.45, kick: level > 0.7, sparkle: level > 0.9 });
 
 type LeadEv = { kind: string; midi: number; vel?: number; pan?: number; dur?: number; u?: number };
 type PadTargets = { gain: number; cutoff?: number };
@@ -64,7 +67,14 @@ export function createInstruments(Tone: any, core: any) {
   const surfGain = new Tone.Gain(0.35).connect(swell);
   const surf = new Tone.Noise("pink").connect(new Tone.Filter({ frequency: 700, type: "lowpass" }).connect(surfGain));
 
-  /* ---- fire: dry pluck + crackle, low roar ---- */
+  // waves: a noise swell that washes in and out through an opening filter; bigger and brighter when the value is higher
+  const waveFilter = new Tone.Filter({ frequency: 300, type: "lowpass" }).connect(master);
+  waveFilter.connect(reverbSend);
+  const waveSynth = new Tone.NoiseSynth({ noise: { type: "pink" }, envelope: { attack: 0.55, decay: 0.75, sustain: 0, release: 0.4 } }).connect(waveFilter);
+  waveSynth.volume.value = -3;
+  let lastWave = -10;
+
+  /* ---- fire: woody pop + crackle, low roar ---- */
   const firePan = new Tone.Panner(0).connect(master);
   const fireDrive = new Tone.Distortion({ distortion: 0.35, wet: 0.5 }).connect(firePan);
   const fireLead = new Tone.MonoSynth({
@@ -73,7 +83,11 @@ export function createInstruments(Tone: any, core: any) {
     envelope: { attack: 0.002, decay: 0.2, sustain: 0, release: 0.12 },
     filterEnvelope: { attack: 0.001, decay: 0.12, sustain: 0, release: 0.1, baseFrequency: 260, octaves: 4 },
   }).connect(fireDrive);
-  fireLead.volume.value = -8;
+  fireLead.volume.value = -15; // quiet: it only keeps the pitch clear under the pop
+  // the pop: a noise burst through a narrow filter tuned to the note, like a knot bursting in a log
+  const popFilter = new Tone.Filter({ frequency: 800, type: "bandpass", Q: 16 }).connect(firePan);
+  const pop = new Tone.NoiseSynth({ noise: { type: "white" }, envelope: { attack: 0.001, decay: 0.1, sustain: 0, release: 0.03 } }).connect(popFilter);
+  pop.volume.value = 8; // the narrow filter passes little energy
   const crackleHp = new Tone.Filter({ frequency: 3200, type: "highpass" }).connect(firePan);
   const crackle = new Tone.NoiseSynth({ noise: { type: "white" }, envelope: { attack: 0.001, decay: 0.035, sustain: 0, release: 0.01 } }).connect(crackleHp);
   crackle.volume.value = -10;
@@ -121,9 +135,29 @@ export function createInstruments(Tone: any, core: any) {
   const drum = new Tone.MembraneSynth().connect(master);
   drum.volume.value = -8;
 
+  /* ---- the band (game): joins the lead as the value rises ---- */
+  const bass = new Tone.MonoSynth({
+    oscillator: { type: "triangle" },
+    filter: { Q: 1, type: "lowpass" },
+    envelope: { attack: 0.01, decay: 0.25, sustain: 0.5, release: 0.25 },
+    filterEnvelope: { attack: 0.01, decay: 0.2, sustain: 0.4, release: 0.2, baseFrequency: 180, octaves: 2 },
+  }).connect(master);
+  bass.volume.value = -9;
+  const hat = new Tone.NoiseSynth({ noise: { type: "white" }, envelope: { attack: 0.001, decay: 0.045, sustain: 0, release: 0.01 } }).connect(new Tone.Filter({ frequency: 7500, type: "highpass" }).connect(master));
+  hat.volume.value = -20;
+  const kick = new Tone.MembraneSynth({ pitchDecay: 0.04, octaves: 5, envelope: { attack: 0.001, decay: 0.3, sustain: 0, release: 0.1 } }).connect(master);
+  kick.volume.value = -7;
+  const sparkle = new Tone.FMSynth({
+    harmonicity: 3.01, modulationIndex: 10,
+    envelope: { attack: 0.001, decay: 0.5, sustain: 0, release: 0.5 },
+    modulationEnvelope: { attack: 0.001, decay: 0.2, sustain: 0, release: 0.2 },
+  }).connect(reverbSend);
+  sparkle.connect(master);
+  sparkle.volume.value = -16;
+
   const pads: Record<VoiceId, { gain: { gain: { setTargetAtTime: (v: number, t: number, tau: number) => void } }; scale: number; cutoff?: { frequency: { setTargetAtTime: (v: number, t: number, tau: number) => void } } }> = {
     water: { gain: waterPadGain, scale: 1.5, cutoff: waterFilter },
-    fire: { gain: firePadGain, scale: 2.6, cutoff: roarFilter },
+    fire: { gain: firePadGain, scale: 3.6, cutoff: roarFilter },
     warm: { gain: warmPadGain, scale: 1, cutoff: warmFilter },
     bell: { gain: bellPadGain, scale: 0.5 },
   };
@@ -166,13 +200,25 @@ export function createInstruments(Tone: any, core: any) {
         const t = after("water", time);
         waterPan.pan.setValueAtTime(pan, t);
         waterLead.triggerAttackRelease(hz, dur * 1.4, t, vel);
+        // a wave washes in about once a second; higher value = louder, brighter wave
+        if (t - lastWave > 1.0) {
+          lastWave = t;
+          waveFilter.frequency.cancelScheduledValues(t);
+          waveFilter.frequency.setValueAtTime(280, t);
+          waveFilter.frequency.exponentialRampToValueAtTime(700 + 3200 * u, t + 0.55);
+          waveFilter.frequency.exponentialRampToValueAtTime(280, t + 1.4);
+          waveSynth.triggerAttackRelease(0.9, t, 0.25 + 0.75 * u);
+        }
       } else if (voice === "fire") {
         const t = after("fire", time);
         firePan.pan.setValueAtTime(pan, t);
         fireLead.triggerAttackRelease(hz, dur * 0.7, t, vel);
-        // more fire = more crackle: 0 to 3 sparks spread over the note
+        popFilter.frequency.setValueAtTime(hz * 2, t);
+        pop.triggerAttackRelease(0.09, after("pop", t), vel);
+        // more fire = more crackle: 0 to 6 sparks scattered over the note (how many is the data; exactly when is chance)
         const n = cracklesFor(u);
-        for (let i = 0; i < n; i++) crackle.triggerAttackRelease(0.03, after("crackle", t + (i * dur) / Math.max(1, n)), 0.35 + 0.6 * u);
+        const times = Array.from({ length: n }, () => Math.random() * dur).sort((a, b) => a - b);
+        for (const dt of times) crackle.triggerAttackRelease(0.02 + Math.random() * 0.03, after("crackle", t + dt), 0.3 + 0.7 * Math.random() * (0.5 + 0.5 * u));
       } else if (voice === "warm") {
         const t = after("warm", time);
         warmPan.pan.setValueAtTime(pan, t);
@@ -184,6 +230,15 @@ export function createInstruments(Tone: any, core: any) {
         bellPan.pan.setValueAtTime(pan, t);
         b.synth.triggerAttackRelease(hz * 2, dur * 2, t, vel);
       }
+    },
+    /* Game: the band behind note number `i` of a phrase. level 0..1 = where this value sits in the round's range.
+       Low = the lead alone; then bass, hi-hat, kick and sparkle join, so "more" is heard as a fuller band. */
+    accompany(level: number, time: number, i: number, midi: number) {
+      const b = bandFor(level), root = VOICE_MAP[voice].rootMidi - 12;
+      if (b.bass && i % 2 === 0) bass.triggerAttackRelease(core.midiToFreq(i % 4 === 0 ? root : root + 7), 0.3, after("bass", time), 0.8);
+      if (b.hat) hat.triggerAttackRelease(0.04, after("hat", time), 0.35 + 0.5 * level);
+      if (b.kick && i % 2 === 0) kick.triggerAttackRelease(core.midiToFreq(36), 0.2, after("kick", time), 0.9);
+      if (b.sparkle) sparkle.triggerAttackRelease(core.midiToFreq(midi + 24), 0.3, after("sparkle", time + 0.12), 0.7);
     },
     /* For the visuals: loudness 0..1 and a 256-bin spectrum (dB). */
     level(): number {
@@ -199,6 +254,8 @@ export function createInstruments(Tone: any, core: any) {
 export type Instruments = ReturnType<typeof createInstruments>;
 
 export function selfCheck() {
-  console.assert(cracklesFor(0) === 0 && cracklesFor(1) === 3 && cracklesFor(0.5) === 2, "crackle count follows the fire value");
+  console.assert(cracklesFor(0) === 0 && cracklesFor(1) === 6 && cracklesFor(0.5) === 3, "crackle count follows the fire value");
+  const low = bandFor(0.1), mid = bandFor(0.5), top = bandFor(1);
+  console.assert(!low.bass && !low.hat && mid.bass && mid.hat && !mid.kick && top.kick && top.sparkle, "the band grows with the level");
   console.assert(new Set(Object.values(VOICE_MAP).map((m) => `${m.scale}${m.rootMidi}`)).size >= 3, "voices differ in key or scale");
 }

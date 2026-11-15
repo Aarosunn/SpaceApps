@@ -5,5 +5,6 @@ export const FLAGS = {
   visualFx: true, // map overlays that move with the sound: reading window, note ripples, aura, live waveform
   mapKeyboard: true, // focus the map and explore it with the arrow keys
   voiceControl: true, // microphone button + V key: spoken commands ("add Amazon", "next", "wildfires")
+  gameBand: true, // game: more instruments join as the value rises (bass, hi-hat, kick, sparkle)
   gameJuice: true, // game: spinning record, points and streak, confetti, fire round, "play my mix"
 };
