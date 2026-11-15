@@ -143,14 +143,15 @@ if (scene === "globe") {
   await wait(4500);
   mark("end");
 } else if (scene === "keys") {
+  // audio navigation: Shift + arrows explore the map (the place is shown and spoken), Enter adds it
   mark("start");
-  await page.keyboard.press("Tab"); mark("focus");
+  await page.mouse.move(5, 5);
   await wait(500);
-  for (const k of ["ArrowLeft", "ArrowLeft", "ArrowLeft", "ArrowUp", "ArrowUp", "ArrowUp", "ArrowUp"]) { await page.keyboard.press(k); await wait(170); }
+  for (const k of ["Shift+ArrowLeft", "Shift+ArrowUp", "Shift+ArrowUp", "Shift+ArrowRight", "Shift+ArrowRight", "Shift+ArrowRight"]) { await page.keyboard.press(k); await wait(650); }
   mark("moved");
-  await wait(1500);
+  await wait(700);
   await page.keyboard.press("Enter"); mark("enter");
-  await wait(3200);
+  await wait(3500);
   mark("end");
 }
 

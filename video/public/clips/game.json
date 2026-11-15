@@ -1,14 +1,14 @@
 {
- "frames": 486,
- "seconds": 16.17,
+ "frames": 446,
+ "seconds": 18.12,
  "marks": {
-  "start": 0.47,
-  "startClicked": 2.04,
-  "listen": 4.39,
-  "mystery": 8.93,
-  "choose": 11.23,
-  "answer": 12.94,
-  "end": 17.44
+  "start": 0.43,
+  "startClicked": 2.25,
+  "listen": 4.75,
+  "mystery": 9.31,
+  "choose": 11.6,
+  "answer": 13.92,
+  "end": 18.43
  },
  "audio": true
 }

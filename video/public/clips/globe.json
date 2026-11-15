@@ -1,16 +1,16 @@
 {
- "frames": 595,
- "seconds": 36.89,
+ "frames": 618,
+ "seconds": 37.5,
  "marks": {
-  "start": 0.45,
-  "clickOcean": 1.44,
-  "clickAfrica": 7.67,
-  "skip": 11.77,
-  "landed": 15.37,
-  "typeStart": 19.58,
-  "fires": 21.07,
-  "heat": 30.53,
-  "end": 36.93
+  "start": 0.42,
+  "clickOcean": 1.62,
+  "clickAfrica": 8.04,
+  "skip": 12.55,
+  "landed": 16.15,
+  "typeStart": 20.53,
+  "fires": 22.46,
+  "heat": 31.45,
+  "end": 37.55
  },
  "audio": true
 }

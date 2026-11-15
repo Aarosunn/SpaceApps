@@ -1,12 +1,11 @@
 {
- "frames": 162,
- "seconds": 7.58,
+ "frames": 110,
+ "seconds": 9.48,
  "marks": {
   "start": 0.44,
-  "focus": 0.5,
-  "moved": 2.87,
-  "enter": 4.46,
-  "end": 7.66
+  "moved": 5.22,
+  "enter": 6.1,
+  "end": 9.6
  },
  "audio": true
 }
