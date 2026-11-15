@@ -33,6 +33,25 @@ Written 2026-11-14 for Space Apps 2026. Answers: how do we actually get the soun
 | [08-recipes-python.md](08-recipes-python.md) | Index of the runnable Python code in `recipes-python/` |
 | [09-recipes-browser.md](09-recipes-browser.md) | Index of the browser code in `recipes-browser/` |
 
+## Check that everything works
+
+```bash
+python verify_all.py
+```
+
+Needs Python with numpy, and Node. It writes nothing into the repo. It runs every Python recipe's self-test, re-renders both songs from `recipes-python/data/` and compares them byte for byte with the committed files, pushes odd frames through the pipeline (all land, one flat colour, a single ocean pixel, noise, a one-frame clip, a clip with no data), validates every committed timeline, note list and WAV, runs the Node tests, syntax-checks the script in every page, and confirms every file a page points to exists. Last run: 60 checks, all passing.
+
+It cannot check what a page does in a browser or how anything sounds. On 2026-11-14 all nine pages were also opened in Chromium: each loaded with no JavaScript errors and produced sound.
+
+## How this relates to the Earthsound app
+
+The team's plan (`../plans/2026-11-14-earthsound-v2.md`) has no server. Its "backend" is an offline Python pipeline that writes `rounds.json` and `grids.json`, and its sound engine is plain Web Audio in `site/js/sound.js`, with no audio library. This folder is reference material and working examples for that build, not a part of it:
+
+- The plan's `sound.js` and its two tests were extracted from the plan and run as written: both tests pass.
+- The plan's pitch mapping gives 11 distinct pitches over 0..1 (A3 to A5, major pentatonic). The recipes here use the same scale family, so examples transfer directly.
+- The `timeline.json` format here (`meta` + `frames[]` with `t`, `mean`, `grid`, `motion`, `events`) is separate from the plan's `rounds.json`. Nothing in the app reads it unless you choose to.
+- The Earthsound app repo did not exist on GitHub when this was written, so nothing here has been tested against the real front end.
+
 ## Demo songs and visualizers
 
 Made from the real SVS 3912 movie (sea surface temperature). Serve with `node serve.js . 8765` from `recipes-browser/`, then open the page.

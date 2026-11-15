@@ -1,6 +1,8 @@
 # 09 - Browser recipes: Tone.js and Web Audio programs for the Earth Information Jukebox
 
 > Status: written and checked by its author on 2026-11-14 (Node tests pass; one muted scripted smoke test in Chromium). Not independently fact-checked; no human has listened to it or tested it in Safari, on a phone, or with a screen reader. The code is also in recipes-browser/.
+>
+> Update 2026-11-14 evening: all five pages were run in a visible Chromium tab and produce sound with no errors. J5 now ships one real track (SVS 3912, with `timelines/3912.json` and the local movie `songs/clip.webm`); the two tracks that had no timeline were removed from the code in `recipes-browser/`, so the J5 listing below still shows the older three-track list.
 
 ## TL;DR
 
