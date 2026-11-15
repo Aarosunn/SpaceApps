@@ -18,7 +18,8 @@ import { ShowPlaylistTab } from "@/components/playlist-hidden/ShowPlaylistTab";
 import { asset } from "@/components/asset";
 import { findArea, latLonToXy, layerFor, regionName, surfaceOf, xyToLatLon, type Surface } from "@/lib/geo";
 import { legPath, pointOnLeg } from "@/lib/route";
-import { TIMELINE_SECONDS, useJukebox } from "@/lib/sonify/useJukebox";
+import { TIMELINE_SECONDS, useJukebox, type SoundRecipe } from "@/lib/sonify/useJukebox";
+import { HowButton, HowPanel } from "@/components/how/HowPanel";
 import s from "./EarthApp.module.css";
 
 const W = 1440, H = 900;
@@ -29,7 +30,7 @@ const LAND_SHORT = "Fires";
 const MAX_STOPS = 7;
 const FLIGHT_MS = 2600; // plane flight between songs
 const LANDING_GAP_MS = 700; // quiet beat after landing, before the next song starts
-const IDLE_CAPTION = "Hover the map to explore. Click a place to listen, + to add it.";
+const IDLE_CAPTION = "Hover the map to explore. Click a place to listen, + to add it, ? to see how the sound is made.";
 
 type Place = { name: string; layer: string; x: number; y: number; surface: Surface };
 
@@ -103,6 +104,10 @@ export function EarthApp() {
   const [query, setQuery] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const [pickMode, setPickMode] = useState(false); // "Add place" with nothing hovered: next map click adds
+  // "How this sound is made" panel: opens for a place when it is added with +, or with the ? key / button.
+  const [how, setHow] = useState<Place | null>(null);
+  const [howOpen, setHowOpen] = useState(false);
+  const [recipe, setRecipe] = useState<{ name: string; data: SoundRecipe } | null>(null);
   // Plane flight between two songs: the only time the plane is on screen.
   type Flight = { from: Place; to: Place; toIdx: number; t: number };
   const [flight, setFlight] = useState<Flight | null>(null);
@@ -286,10 +291,35 @@ export function EarthApp() {
       }
       setStops((list) => [...list, place]);
       setNotice(`Added ${place.name} to the mixtape.`);
-      if (preview?.name === place.name) setPreview(null);
+      setHow(place); // show how this place's sound is generated
+      setHowOpen(true);
+      if (preview?.name === place.name) {
+        // The place being previewed is now a stop: keep it playing as that stop instead of going silent.
+        setPreview(null);
+        setCurrent(stops.length);
+      }
     },
     [stops, preview],
   );
+
+  // Load the recipe (data + notes) for the place the panel describes. Uses the same functions as the player.
+  const loadRecipe = jb.recipe;
+  useEffect(() => {
+    if (!howOpen || !how) return;
+    let stale = false;
+    const { lat, lon } = xyToLatLon(how.x, how.y);
+    void loadRecipe({ lat, lon, surface: how.surface }).then((data) => !stale && setRecipe({ name: how.name, data }));
+    return () => {
+      stale = true;
+    };
+  }, [howOpen, how, loadRecipe]); // loadRecipe is stable; `jb` itself is a new object every render
+  const toggleHow = useCallback(() => {
+    if (howOpen) return setHowOpen(false);
+    const target = nowPlaying ?? how ?? stops[stops.length - 1] ?? null;
+    if (!target) return setNotice("Click a place or press + to add one first.");
+    setHow(target);
+    setHowOpen(true);
+  }, [howOpen, nowPlaying, how, stops]);
 
   // Playback clock: advances while playing; at the end of a track, fly to the next stop.
   const tick = useRef<() => void>(() => {});
@@ -372,6 +402,7 @@ export function EarthApp() {
       } else if (k === "arrowleft") setYear((y) => Math.max(2001, y - 1));
       else if (k === "arrowright") setYear((y) => Math.min(2025, y + 1));
       else if (k === "+" || k === "=") addPlace(hover ?? lastHover.current ?? preview);
+      else if (k === "?") toggleHow();
       else if (k === " " && t.tagName !== "BUTTON") {
         e.preventDefault();
         togglePlay();
@@ -379,7 +410,7 @@ export function EarthApp() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [next, addPlace, hover, preview, search, togglePlay]);
+  }, [next, addPlace, hover, preview, search, togglePlay, toggleHow]);
 
   // ---- derived view data
   const activeIdx = preview ? -1 : current;
@@ -504,6 +535,18 @@ export function EarthApp() {
                 )}
               </Mixtape>
             )}
+
+            {!menuOpen && howOpen && how && (
+              <HowPanel
+                placeName={how.name}
+                surface={how.surface}
+                recipe={recipe?.name === how.name ? recipe.data : null}
+                live={!flight && nowPlaying?.name === how.name}
+                getTime={jb.time}
+                onClose={() => setHowOpen(false)}
+              />
+            )}
+            {!menuOpen && !howOpen && (stops.length > 0 || nowPlaying) && <HowButton onClick={toggleHow} />}
 
             {menuOpen ? (
               <>
