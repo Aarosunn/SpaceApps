@@ -2,10 +2,11 @@
   clip_song.wav          from the whole movie (needs timeline_3912.json made by real_demo.py)
   single_frame_song.wav  from ONE frame: chord bed + melody + reference tone + coast ticks, all in A
 
-Usage:  python make_songs.py <folder with the raw data> <output folder>
+Usage:  python make_songs.py [data folder] [output folder]     (defaults: ./data and ../recipes-browser/songs)
 Also writes clip_song.json and single_frame_song.json: every note with its time and the part of the picture it was read from.
 """
 import json
+import os
 import sys
 
 import numpy as np
@@ -15,7 +16,10 @@ import p5_colormap as p5
 import synth
 import wavio
 
-data, out = sys.argv[1], sys.argv[2]
+HERE = os.path.dirname(os.path.abspath(__file__))
+# defaults: the small input files committed in data/, and the page folder that plays the result
+data = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, 'data')
+out = sys.argv[2] if len(sys.argv) > 2 else os.path.join(HERE, '..', 'recipes-browser', 'songs')
 SR = wavio.SR
 
 # ---------------------------------------------------------------- 1) clip song: the whole movie

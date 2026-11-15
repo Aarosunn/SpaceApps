@@ -1,12 +1,13 @@
 """single_frame_demo.py - three ways to hear ONE real frame (SVS 3912, sea surface temperature).
 
-Usage:  python single_frame_demo.py <folder with the raw data> <output folder>
+Usage:  python single_frame_demo.py [data folder] [output folder]     (defaults: ./data and ../recipes-browser/single-frame)
 Inputs (cut with ffmpeg, see real_demo.py):
   b1_t34_342x192_rgb.raw   one movie frame, 342 x 192, raw RGB bytes
   cbar_310x95_rgba.raw     the page's colour bar, raw RGBA bytes
 Writes frame.bmp, 1_column_scan.wav, 2_north_to_south_chord.wav, 3_west_to_east_melody.wav, summary.json.
 """
 import json
+import os
 import struct
 import sys
 
@@ -18,7 +19,10 @@ import p5_colormap as p5
 import synth
 import wavio
 
-data, out = sys.argv[1], sys.argv[2]
+HERE = os.path.dirname(os.path.abspath(__file__))
+# defaults: the small input files committed in data/, and the page folder that plays the result
+data = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, 'data')
+out = sys.argv[2] if len(sys.argv) > 2 else os.path.join(HERE, '..', 'recipes-browser', 'single-frame')
 W, H = 342, 192
 rgb = np.fromfile(f'{data}/b1_t34_342x192_rgb.raw', dtype=np.uint8).reshape(H, W, 3)
 bar = np.fromfile(f'{data}/cbar_310x95_rgba.raw', dtype=np.uint8).reshape(95, 310, 4)
