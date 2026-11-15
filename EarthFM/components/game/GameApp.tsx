@@ -21,17 +21,16 @@ const W = 1440, H = 900;
 const GAP_MS = 550; // pause between sounds in a sequence
 
 type Phase = "start" | "card" | "listen" | "choose" | "reveal" | "end";
-type Step = { key: "demo0" | "demo1" | "ref" | "mystery"; label: string; sub?: string; contour: Contour; hidden?: boolean };
+type Step = { key: "demo0" | "demo1" | "mystery"; label: string; sub?: string; contour: Contour; hidden?: boolean };
 
 /* What the voice says on a round card: the topic, what the sound means, and the order of the sounds (nothing is spoken while they play). */
 const cardSpeech = (r: Round) =>
-  `${r.topic} ${r.learn.text} You will hear ${r.learn.demo.length === 1 ? "one example" : `${r.learn.demo.length} examples`}, then the reference, then the mystery sound last.`;
+  `${r.topic} ${r.learn.text} You will hear ${r.learn.demo.length === 1 ? "one example" : `${r.learn.demo.length} examples`}, then the mystery sound.`;
 
 function stepsFor(r: Round, withLearn: boolean): Step[] {
   const mystery = r.options[r.answer];
   const steps: Step[] = [];
   if (withLearn) r.learn.demo.forEach((d, i) => steps.push({ key: i === 0 ? "demo0" : "demo1", label: "How it sounds", sub: d.label, contour: contourFor(r, d.value) }));
-  steps.push({ key: "ref", label: `Reference · ${r.reference.label}`, sub: r.reference.display, contour: contourFor(r, r.reference.value) });
   steps.push({ key: "mystery", label: "Mystery", sub: "?", contour: contourFor(r, mystery.value), hidden: true });
   return steps;
 }
@@ -132,7 +131,7 @@ export function GameApp() {
       setPhase("choose");
       tell(
         `${round.question} Press 1 to 4, or Space to hear the mystery again.`,
-        `${round.question} The reference was ${round.reference.label}, ${round.reference.display}. ${round.options.map((o, i) => `${i + 1}: ${o.label}, ${o.display}`).join(". ")}. Press 1 to 4, or Space to hear the mystery again.`,
+        `${round.question} ${round.options.map((o, i) => `${i + 1}: ${o.label}, ${o.display}`).join(". ")}. Press 1 to 4, or Space to hear the mystery again.`,
       );
       shownAt.current = performance.now();
     });
@@ -246,7 +245,6 @@ export function GameApp() {
         const byName = round.options.findIndex((o) => t.includes(o.label.toLowerCase()));
         if (byName >= 0) return choose(byName);
         if (/again|replay|repeat|mystery/.test(t)) return replay("mystery");
-        if (/reference/.test(t)) return replay("ref");
       }
       if (/next|continue|start|listen|go|play/.test(t)) {
         if (phase === "start" || phase === "card") return startOrCard();
@@ -302,7 +300,7 @@ export function GameApp() {
   const score = results.filter((r) => r.correct).length;
   const points = results.reduce((a, r) => a + (r.points ?? 0), 0);
   const share = `EarthFM · ${ROUNDS.map((r, i) => `${r.title} ${results[i]?.correct ? "✅" : "❌"}`).join(" · ")} · ${score}/${ROUNDS.length}${FLAGS.gameJuice ? ` · ${points} pts` : ""}`;
-  const maxAbs = Math.max(...round.options.map((o) => Math.abs(o.value)), Math.abs(round.reference.value), 1);
+  const maxAbs = Math.max(...round.options.map((o) => Math.abs(o.value)), 1);
 
   return (
     <div className={s.viewport}>
@@ -337,7 +335,7 @@ export function GameApp() {
                 <div className={s.center}>
                   <p className={s.kicker}>Hear NASA Earth data</p>
                   <h1 className={s.h1}>Can you read the planet by ear?</h1>
-                  <p className={s.lead}>{ROUNDS.length === 4 ? "Four" : "Three"} rounds. Each one plays a reference sound and a mystery sound made from NASA Earth Information Center data. Match the mystery to its value.</p>
+                  <p className={s.lead}>{ROUNDS.length === 4 ? "Four" : "Three"} rounds. Each one shows you how the data sounds, then plays a mystery sound made from NASA Earth Information Center data. Match the mystery to its value.</p>
                   <p className={s.hint}>🎧 Headphones on · keys 1–4 to answer · Space to replay</p>
                   <button className={s.primary} onClick={startOrCard}>Start</button>
                 </div>
@@ -361,16 +359,16 @@ export function GameApp() {
                   <h2 className={s.h2}>{round.question}</h2>
                   <p className={s.unit}>Values: {round.unit}</p>
                   <ol className={s.steps}>
-                    {(["How it sounds", "Reference", "Mystery"] as const).map((t, i) => {
-                      const on = current && (i === 0 ? current.key.startsWith("demo") : i === 1 ? current.key === "ref" : current.key === "mystery");
+                    {(["How it sounds", "Mystery"] as const).map((t, i) => {
+                      const on = current && (i === 0 ? current.key.startsWith("demo") : current.key === "mystery");
                       return <li key={t} className={on ? s.stepOn : ""}>{i + 1}. {t}</li>;
                     })}
                   </ol>
                   <div className={s.contours}>
                     <ContourView
-                      contour={current && !current.hidden ? current.contour : steps.find((x) => x.key === "ref")!.contour}
-                      label={current && !current.hidden ? current.label : `Reference · ${round.reference.label}`}
-                      sub={current && !current.hidden ? current.sub : round.reference.display}
+                      contour={current && !current.hidden ? current.contour : steps[0].contour}
+                      label="How it sounds"
+                      sub={current && !current.hidden ? current.sub : steps[0].sub}
                       playKey={playKey}
                       active={!!current && !current.hidden}
                     />
@@ -378,7 +376,6 @@ export function GameApp() {
                   </div>
                   <div className={s.replays}>
                     <button className={s.ghost} onClick={() => replay("demo0")} disabled={phase === "listen"}>How it sounds</button>
-                    <button className={s.ghost} onClick={() => replay("ref")} disabled={phase === "listen"}>Replay reference</button>
                     <button className={s.ghostDark} onClick={() => replay("mystery")} disabled={phase === "listen"}>Replay mystery (Space)</button>
                     <button className={s.ghost} onClick={() => setSeeIt(!seeIt)}>{seeIt ? "Hide" : "Show"} the mystery as a line</button>
                   </div>
@@ -422,11 +419,11 @@ export function GameApp() {
                     </div>
                     <div className={s.bars}>
                       <p className={s.unit}>{round.unit}</p>
-                      {[{ label: round.reference.label, value: round.reference.value, display: round.reference.display, ref: true }, ...round.options].map((o, i) => {
-                        const isAns = i - 1 === round.answer, isPick = i - 1 === choice;
+                      {round.options.map((o, i) => {
+                        const isAns = i === round.answer, isPick = i === choice;
                         return (
                           <button key={o.label} className={`${s.bar} ${isAns ? s.barAns : ""} ${isPick && !isAns ? s.barPick : ""}`} onClick={() => { stopSpeaking(); playContour(contourFor(round, o.value), round.timbre); }} aria-label={`Hear ${o.label}, ${o.display}${isAns ? ", the answer" : isPick ? ", your pick" : ""}`}>
-                            <span className={s.bLabel}>{o.label}{"ref" in o ? " (ref)" : isAns ? " ✓" : isPick ? " ✗" : ""}</span>
+                            <span className={s.bLabel}>{o.label}{isAns ? " ✓" : isPick ? " ✗" : ""}</span>
                             <span className={s.bTrack}><span className={s.bFill} style={{ width: `${(Math.abs(o.value) / maxAbs) * 100}%`, opacity: o.value < 0 ? 0.5 : 1 }} /></span>
                             <span className={s.bValue}>{o.display}</span>
                           </button>
