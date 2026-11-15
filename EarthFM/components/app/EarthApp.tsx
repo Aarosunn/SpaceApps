@@ -122,6 +122,27 @@ export function EarthApp() {
     if (menuWasOpen.current && !menuOpen && document.activeElement === document.body) document.querySelector<HTMLElement>('[aria-label^="Open menu"]')?.focus();
     menuWasOpen.current = menuOpen;
   }, [menuOpen]);
+  // Hiding a panel with the keyboard removes the focused button: move focus to the button that brings it back.
+  // Only after a key press on that button: after a mouse click, or the B / P shortcuts, Space must still play and pause.
+  const refocus = useRef<string | null>(null);
+  const viaKeys = useRef(false);
+  useEffect(() => {
+    const onKeys = () => { viaKeys.current = true; };
+    const onPointer = () => { viaKeys.current = false; };
+    window.addEventListener("keydown", onKeys, true);
+    window.addEventListener("pointerdown", onPointer, true);
+    return () => {
+      window.removeEventListener("keydown", onKeys, true);
+      window.removeEventListener("pointerdown", onPointer, true);
+    };
+  }, []);
+  const focusAfter = (selector: string) => {
+    if (viaKeys.current) refocus.current = selector;
+  };
+  useEffect(() => {
+    if (refocus.current && document.activeElement === document.body) document.querySelector<HTMLElement>(refocus.current)?.focus();
+    refocus.current = null;
+  });
   // Plane flight between two songs: the only time the plane is on screen.
   type Flight = { from: Place; to: Place; toIdx: number; t: number };
   const [flight, setFlight] = useState<Flight | null>(null);
@@ -580,7 +601,7 @@ export function EarthApp() {
             {captionsOn ? <WordCaption text={caption} spoken={voiceOn} /> : !voiceOn && <span className="sr-only" aria-live="polite">{caption}</span>}
             {!controlsHidden && (
               <>
-                <NowListening text={nowText} onHide={() => setControlsHidden(true)} />
+                <NowListening text={nowText} onHide={() => { focusAfter('[aria-label^="Show controls"]'); setControlsHidden(true); }} />
                 <SoundPlayer
                   time={`${mmss(elapsed)} / ${mmss(TRACK_SECONDS)}`}
                   progress={elapsed / TRACK_SECONDS}
@@ -600,12 +621,12 @@ export function EarthApp() {
                 playing={playing}
                 onPlayPause={togglePlay}
                 onNext={next}
-                onShow={() => setControlsHidden(false)}
+                onShow={() => { focusAfter('[aria-label^="Hide controls"]'); setControlsHidden(false); }}
               />
             )}
 
             {playlistHidden ? (
-              <ShowPlaylistTab count={stops.length} onShow={() => setPlaylistHidden(false)} />
+              <ShowPlaylistTab count={stops.length} onShow={() => { focusAfter('[aria-label^="Hide playlist"]'); setPlaylistHidden(false); }} />
             ) : (
               <Mixtape
                 compact
@@ -614,9 +635,9 @@ export function EarthApp() {
                 stops={mixStops}
                 emptyText="No places yet. Click the map or search for one."
                 addDisabled={stops.length >= MAX_STOPS}
-                onHide={() => setPlaylistHidden(true)}
+                onHide={() => { focusAfter('[aria-label^="Show playlist"]'); setPlaylistHidden(true); }}
                 onSelect={(n) => goTo(n - 1)}
-                onRemove={(n) => removeStop(n - 1)}
+                onRemove={(n) => { focusAfter('[aria-label^="Hide playlist"]'); removeStop(n - 1); }}
                 onAdd={() => {
                   // a way in without a mouse: go to the search box, where typing a name and Enter adds the place
                   document.querySelector<HTMLInputElement>('input[placeholder^="Search"]')?.focus();
@@ -632,7 +653,7 @@ export function EarthApp() {
             )}
 
             {!menuOpen && howOpen && shown && (
-              <HowPanel placeName={shown.name} recipe={song} live={!flight && nowPlaying?.name === shown.name} getTime={jb.time} onClose={() => setHowOpen(false)} />
+              <HowPanel placeName={shown.name} recipe={song} live={!flight && nowPlaying?.name === shown.name} getTime={jb.time} onClose={() => { focusAfter('[aria-label="Show how this sound is made"]'); setHowOpen(false); }} />
             )}
             {!menuOpen && !howOpen && (stops.length > 0 || nowPlaying) && <HowButton onClick={toggleHow} />}
 
