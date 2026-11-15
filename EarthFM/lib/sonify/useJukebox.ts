@@ -13,6 +13,8 @@ import core from "./sonify-core.js";
 import Engine from "./jukebox-engine.js";
 import { asset } from "@/components/asset";
 import { LAYERS, type Layer, type LayerId, type SonMode } from "./layers";
+import { FLAGS } from "@/lib/flags";
+import { createInstruments, VOICE_MAP, type VoiceId } from "./instruments";
 
 export const TIMELINE_SECONDS = 68.6; // one song = a layer's timeline, first date to last date
 export const VIEW_ROWS = 5, VIEW_COLS = 8; // the window of 10-degree cells around a place
@@ -28,6 +30,9 @@ const MAPS = {
   area: { ...core.DEFAULT_MAPPING, leadRange: [0, 1], minPulses: 16, maxPulses: 16 },
   time: { ...core.DEFAULT_MAPPING, leadRange: [0, 1] },
 };
+/* Each data layer has its own instrument, key and scale (lib/sonify/instruments.ts). */
+export const LAYER_VOICE: Record<LayerId, VoiceId> = { sst: "water", fires: "fire", heat: "warm" };
+const mapFor = (mode: SonMode, layer: LayerId) => (FLAGS.instruments ? { ...MAPS[mode], ...VOICE_MAP[LAYER_VOICE[layer]] } : MAPS[mode]);
 const STEP: number = core.DEFAULT_MAPPING.stepSeconds;
 const TOGGLES = { pad: true, lead: true, ref: true, drum: true };
 const HAS_DATA = 0.02; // grid values at or below this mean "no data"
@@ -70,7 +75,7 @@ export function recipeFor(tl: Timeline, p: Place, layer: Layer, mode: SonMode): 
   const home = cellFor(tl, p);
   const r0 = Math.min(rows - VIEW_ROWS, Math.max(0, home.row - Math.floor(VIEW_ROWS / 2)));
   const c0 = Math.min(cols - VIEW_COLS, Math.max(0, home.col - Math.floor(VIEW_COLS / 2)));
-  const map = MAPS[mode];
+  const map = mapFor(mode, layer.id);
   const notes: number[] = core.leadNotes(map);
   const [lo, hi] = map.leadRange;
   const [vmin, vmax] = (tl.meta.value_range as [number, number]) ?? [0, 1];
@@ -134,7 +139,7 @@ export function recipeFor(tl: Timeline, p: Place, layer: Layer, mode: SonMode): 
 export function useJukebox() {
   const st = useRef<{
     Tone?: typeof import("tone");
-    engine?: { setMaster: (g: number, t: number) => void; setPad: (p: { gain: number }, t: number, tau?: number) => void; start: (t: number) => void };
+    engine?: { setMaster: (g: number, t: number) => void; setPad: (p: { gain: number }, t: number, tau?: number) => void; start: (t: number) => void; setVoice?: (v: VoiceId) => void; level?: () => number; spectrum?: () => Float32Array };
     player?: { setSource: (clock: unknown, tl: Timeline, map: unknown) => void; start: () => void; stop: () => void };
     clock?: { currentTime: number; play: () => void; pause: () => void };
     timelines: Partial<Record<LayerId, Promise<Timeline>>>;
@@ -161,7 +166,7 @@ export function useJukebox() {
     await Tone.start();
     if (s.player) return s; // a second call finished first
     s.Tone = Tone;
-    s.engine = Engine.createEngine(Tone, core, MAPS.area);
+    s.engine = FLAGS.instruments ? createInstruments(Tone, core) : Engine.createEngine(Tone, core, MAPS.area);
     s.engine!.start(Tone.now());
     Tone.getDestination().chain(...(s.mono ? [new Tone.Mono()] : [])); // match the switch even if the game set it before
     s.engine!.setMaster(s.left ? 0 : s.volume * 0.65, Tone.now()); // silent if the page was left while this was loading
@@ -199,7 +204,8 @@ export function useJukebox() {
     const clock = core.makeClipClock(TIMELINE_SECONDS, () => performance.now() / 1000);
     clock.currentTime = fromSeconds;
     s.song = song;
-    s.player!.setSource(clock, song.timeline, MAPS[mode]);
+    s.engine!.setVoice?.(LAYER_VOICE[layer]);
+    s.player!.setSource(clock, song.timeline, mapFor(mode, layer));
     s.clock = clock;
     clock.play();
   }, [ensure, recipe]);
@@ -242,5 +248,8 @@ export function useJukebox() {
       s.left = true;
     };
   }, []);
-  return { ensure, play, pause, resume, setVolume, setMono, recipe, time };
+  /* For the visuals: loudness 0..1 and the spectrum of what is sounding now (0 / null before the engine starts). */
+  const level = useCallback(() => st.current.engine?.level?.() ?? 0, []);
+  const spectrum = useCallback(() => st.current.engine?.spectrum?.() ?? null, []);
+  return { ensure, play, pause, resume, setVolume, setMono, recipe, time, level, spectrum };
 }

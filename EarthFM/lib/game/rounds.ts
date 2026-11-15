@@ -2,7 +2,7 @@
    spaceapps-2026/notes/R3-guessing-recon.md (night lights) and R4-eic-datasets.md (sea level, Arctic heat).
    Round 2-3 labels are read off NASA's charts (+-0.3 units); re-check against published numbers before submitting. */
 
-export type Timbre = "bell" | "water" | "warm";
+export type Timbre = "bell" | "water" | "warm" | "fire";
 
 export type Option = { label: string; value: number; display: string; img?: [string, string] };
 

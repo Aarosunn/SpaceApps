@@ -9,6 +9,8 @@ import type { Round, Timbre } from "./rounds";
 import core from "@/lib/sonify/sonify-core.js";
 import Engine from "@/lib/sonify/jukebox-engine.js";
 import { getPref } from "@/lib/prefs";
+import { FLAGS } from "@/lib/flags";
+import { createInstruments, type VoiceId } from "@/lib/sonify/instruments";
 
 const BASE = 261.63; // C4
 const BASE_MIDI = 60;
@@ -38,7 +40,9 @@ export function notesFor(k: Contour): number[] {
 }
 
 /* ---- engine (shared with the globe) ---- */
-type Eng = { setMaster: (g: number, t: number) => void; setPad: (p: { gain: number; cutoff?: number }, t: number, tau?: number) => void; play: (ev: object, t: number) => void; start: (t: number) => void };
+type Eng = { setMaster: (g: number, t: number) => void; setPad: (p: { gain: number; cutoff?: number }, t: number, tau?: number) => void; play: (ev: object, t: number) => void; start: (t: number) => void; setVoice?: (v: VoiceId) => void; level?: () => number };
+/* Round timbre -> instrument (lib/sonify/instruments.ts): the same voices the globe uses for its data layers. */
+const TIMBRE_VOICE: Record<Timbre, VoiceId> = { bell: "bell", water: "water", warm: "warm", fire: "fire" };
 let ready: Promise<{ Tone: typeof import("tone"); engine: Eng }> | null = null;
 let volume = 0.8;
 let timers: ReturnType<typeof setTimeout>[] = [];
@@ -48,10 +52,11 @@ export function audio() {
   ready ??= (async () => {
     const Tone = await import("tone");
     await Tone.start();
-    const engine: Eng = Engine.createEngine(Tone, core, core.DEFAULT_MAPPING);
+    const engine: Eng = FLAGS.instruments ? createInstruments(Tone, core) : Engine.createEngine(Tone, core, core.DEFAULT_MAPPING);
     engine.start(Tone.now());
     Tone.getDestination().chain(...(getPref("earthfm-mono") === "1" ? [new Tone.Mono()] : [])); // the Mono audio setting from the globe
     engine.setMaster(volume * 0.65, Tone.now());
+    eng = engine;
     return { Tone, engine };
   })();
   return ready;
@@ -75,6 +80,7 @@ export function playContour(k: Contour, timbre: Timbre, when = 0) {
   const notes = notesFor(k), map = core.DEFAULT_MAPPING;
   const pan = timbre === "bell" ? 0 : timbre === "water" ? -0.25 : 0.25;
   void audio().then(({ Tone, engine }) => {
+    engine.setVoice?.(TIMBRE_VOICE[timbre]);
     notes.forEach((midi, i) => {
       timers.push(
         setTimeout(() => {
@@ -83,7 +89,7 @@ export function playContour(k: Contour, timbre: Timbre, when = 0) {
           const u = core.clamp((midi - (BASE_MIDI - 12)) / 36);
           engine.setPad({ gain: core.scaleLinear(u, map.padMinGain, map.padMaxGain), cutoff: core.scaleExp(u, map.padMinHz, map.padMaxHz) }, t, 0.08);
           if (i === 0) engine.play({ kind: "ref", midi: snap(0) + 12 }, t); // reference blip marks the start, as on the globe
-          engine.play({ kind: "lead", midi, vel: i % 4 === 0 ? 0.9 : 0.6, pan, dur: STEP * 0.8 }, t);
+          engine.play({ kind: "lead", midi, vel: i % 4 === 0 ? 0.9 : 0.6, pan, dur: STEP * 0.8, u }, t);
         }, (when + i * STEP) * 1000),
       );
     });
@@ -91,6 +97,10 @@ export function playContour(k: Contour, timbre: Timbre, when = 0) {
   });
   return k.dur;
 }
+
+/* Loudness 0..1 of what is sounding, for the visuals (0 with the single shared voice). */
+let eng: Eng | null = null;
+export const level = () => eng?.level?.() ?? 0;
 
 /* Short cues: correct (up), wrong (down), tick (step change). Same blip voice as the globe's reference tone. */
 export function earcon(kind: "correct" | "wrong" | "tick") {
