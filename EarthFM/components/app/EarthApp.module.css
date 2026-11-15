@@ -37,3 +37,17 @@
   filter: url(#route-shadow);
   transition: opacity 300ms ease;
 }
+/* NASA's picture of the layer for one date, drawn over the satellite map (which still shows through as land shapes). */
+.dataMap {
+  position: absolute;
+  pointer-events: none;
+  opacity: 0.9;
+}
+/* The pictures stop at the poles, a little short of the artboard's top edge: a dark backing hides the seam. */
+.dataBack {
+  position: absolute;
+  inset: 0;
+  background: var(--ink);
+  opacity: 0.9;
+  pointer-events: none;
+}

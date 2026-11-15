@@ -26,6 +26,11 @@ import { HowButton, HowPanel } from "@/components/how/HowPanel";
 import s from "./EarthApp.module.css";
 
 const W = 1440, H = 900;
+// Where NASA's pictures (the whole globe, longitude -180..180 by latitude 90..-90) sit on the artboard's map.
+const DATA_MAP_BOX = (() => {
+  const a = latLonToXy(90, -180), b = latLonToXy(-90, 180);
+  return { left: a.x, top: a.y, width: b.x - a.x, height: b.y - a.y };
+})();
 const HOVER_DELAY_MS = 450; // debounce: the card only appears once the cursor rests this long
 const TRACK_SECONDS = Math.round(TIMELINE_SECONDS); // one pass of the SVS 3912 timeline per stop
 const MAX_STOPS = 7;
@@ -145,6 +150,20 @@ export function EarthApp() {
     if (refocus.current && document.activeElement === document.body) document.querySelector<HTMLElement>(refocus.current)?.focus();
     refocus.current = null;
   });
+  // The map itself shows the data: NASA's whole-globe picture for the layer. By area it is the date chosen on the
+  // timeline; by time it is the newest date. The next picture replaces the old one only once it has loaded, so
+  // stepping through dates never flashes the plain satellite map.
+  const pictureIdx = sonMode === "area" ? Math.min(LAYERS[layer].dates - 1, Math.max(0, dateIdx ?? LAYERS[layer].dates - 1)) : LAYERS[layer].dates - 1;
+  const pictureSrc = asset(`${LAYERS[layer].images}/${pictureIdx}.jpg`);
+  const [picture, setPicture] = useState<string | null>(null);
+  useEffect(() => {
+    const im = new Image();
+    im.onload = () => setPicture(pictureSrc);
+    im.src = pictureSrc;
+    return () => {
+      im.onload = null;
+    };
+  }, [pictureSrc]);
   // Plane flight between two songs: the only time the plane is on screen.
   type Flight = { from: Place; to: Place; toIdx: number; t: number };
   const [flight, setFlight] = useState<Flight | null>(null);
@@ -570,6 +589,9 @@ export function EarthApp() {
         <div style={{ transform: `scale(${scale})`, transformOrigin: "0 0", width: W, height: H }}>
           <Stage>
             <MapLayer>
+              {/* eslint-disable-next-line @next/next/no-img-element -- a static data picture, stretched to the map */}
+              {picture && <div className={s.dataBack} aria-hidden="true" />}
+              {picture && <img className={s.dataMap} alt="" src={picture} style={DATA_MAP_BOX} />}
               {/* Map hit area: pin cursor + debounced area info. Dots and panels sit above it. */}
               <div className={s.hit} onPointerMove={onMapMove} onPointerLeave={onMapLeave} onClick={onMapClick} aria-hidden="true" />
               <svg className={s.routes} width={W} height={H} aria-hidden="true">

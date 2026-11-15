@@ -12,6 +12,7 @@ export type Layer = {
   menu: string; // name in the settings menu
   file: string; // timeline JSON under public/
   images: string; // folder of 0.jpg, 1.jpg, ... (one per date)
+  dates: number; // how many dates (pictures) there are; the last one is the newest. Checked against the timeline when it loads.
   unit: string;
   decimals: number;
   numbers: boolean; // false = describe this layer in words only (no figures in the caption, picture or pop-up)
@@ -27,7 +28,7 @@ export type Layer = {
 
 export const LAYERS: Record<LayerId, Layer> = {
   sst: {
-    id: "sst", label: "Sea heat", menu: "Sea heat", file: "/sonify/sst-global.json", images: "/sonify/sst",
+    id: "sst", label: "Sea heat", menu: "Sea heat", file: "/sonify/sst-global.json", images: "/sonify/sst", dates: 29,
     unit: " °C", decimals: 1, numbers: true, noData: "Land", higher: "warmer water", words: ["cold water", "mild water", "warm water"],
     picture: "A sea-surface-temperature map from NASA's Scientific Visualization Studio (SVS 3912).",
     reading: "Each pixel's colour is matched to NASA's colour bar (blue 0 °C to red 32 °C) to read a temperature.",
@@ -36,7 +37,7 @@ export const LAYERS: Record<LayerId, Layer> = {
     credit: "NASA Scientific Visualization Studio, svs.gsfc.nasa.gov/3912",
   },
   fires: {
-    id: "fires", label: "Wildfires", menu: "Wildfires", file: "/sonify/fires-global.json", images: "/sonify/fires",
+    id: "fires", label: "Wildfires", menu: "Wildfires", file: "/sonify/fires-global.json", images: "/sonify/fires", dates: 29,
     unit: "", decimals: 1, numbers: false, noData: "No fire", higher: "more fire", words: ["a little fire", "steady fire", "heavy fire"],
     picture: "A map of active fires seen by the VIIRS satellite instruments, from NASA's Scientific Visualization Studio (SVS 5113).",
     reading: "Fires are drawn as bright red-to-yellow dots on a dark map. For each square we measure how much of it is lit up by fire.",
@@ -45,7 +46,7 @@ export const LAYERS: Record<LayerId, Layer> = {
     credit: "NASA Scientific Visualization Studio, svs.gsfc.nasa.gov/5113",
   },
   heat: {
-    id: "heat", label: "Global heat", menu: "Global heat", file: "/sonify/heat-global.json", images: "/sonify/heat",
+    id: "heat", label: "Global heat", menu: "Global heat", file: "/sonify/heat-global.json", images: "/sonify/heat", dates: 30,
     unit: " °C vs 1951–80", decimals: 2, numbers: true, noData: "No data", higher: "hotter than the 1951–1980 average", words: ["cooler than normal", "near normal", "hotter than normal"],
     picture: "A map of surface temperature change (NASA GISTEMP) from NASA's Scientific Visualization Studio (SVS 5207).",
     reading: "Each pixel's colour is matched to NASA's colour bar (blue −2 °C, white 0, red +2 °C) to read how far that spot is from its 1951–1980 average.",
