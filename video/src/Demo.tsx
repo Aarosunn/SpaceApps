@@ -142,7 +142,7 @@ function EndCard() {
         </div>
         <div style={{ fontWeight: 700, fontSize: 196, letterSpacing: -7, lineHeight: 1 }}>EarthFM</div>
       </div>
-      <div style={{ fontWeight: 600, fontSize: 58, marginTop: 22, opacity: b, transform: `translateY(${(1 - b) * 12}px)` }}>Climate data everyone can hear.</div>
+      <div style={{ fontWeight: 600, fontSize: 58, marginTop: 22, opacity: b, transform: `translateY(${(1 - b) * 12}px)` }}>Earth data everyone can hear.</div>
       <div style={{ marginTop: 48, paddingTop: 28, borderTop: `2px solid ${LINE}`, textAlign: "center", fontFamily: MONO, fontSize: 26, lineHeight: 1.6, color: MUTED, opacity: c }}>
         NASA Space Apps Challenge 2026 · The Earth Information Jukebox
         <br />

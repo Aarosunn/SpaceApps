@@ -11,7 +11,7 @@ The spoken lines are the same words as the burned-in captions.
 | 0:09.7 | The same map as wildfires, then as global heat | **Sea temperature, wildfires, global heat: each has its own instrument.** |
 | 0:14.9 | The game: an answer is picked, then the NASA data behind it | **A listening game trains your ear with real NASA numbers.** |
 | 0:20.7 | "Built for everyone" + exploring the map by keyboard | **Built for blind and low-vision users: keyboard, voice, captions.** |
-| 0:25.5 | End card | **EarthFM. Climate data everyone can hear.** |
+| 0:25.5 | End card | **EarthFM. Earth data everyone can hear.** |
 
 ## Recording tips
 - One take with a stopwatch is easiest: start it with the video and hit each line at its time.
