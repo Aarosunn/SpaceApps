@@ -32,6 +32,14 @@ const MAX_STOPS = 7;
 const FLIGHT_MS = 2600; // plane flight between songs
 const LANDING_GAP_MS = 700; // quiet beat after landing, before the next song starts
 const IDLE_CAPTION = "To add a place, click the map, or type its name in the search box and press Enter.";
+// Spoken with H: every keyboard command, for people who can't see the screen.
+const HELP =
+  "Here are all the commands. " +
+  "Exploring: hold Shift and press the arrow keys to move around the map; I'll say where you are. Enter adds that place to your mixtape, or plays it if it's already there. Slash searches for a place by name. " +
+  "Playing: Space plays or pauses. N or right bracket goes to the next place, left bracket goes back. Number keys 1 to 9 jump to that place. Up and down arrows change the volume. Backspace removes the last place. " +
+  "Information: W tells you what's playing. L lists your mixtape. R repeats the last description. Question mark explains how the sound is made. " +
+  "Screen: M opens settings. P shows or hides the playlist. B shows or hides the controls. Escape closes things. " +
+  "Voice: V turns my voice on or off. H plays this list again.";
 
 type Place = { name: string; x: number; y: number; surface: Surface };
 
@@ -210,6 +218,7 @@ export function EarthApp() {
 
   const onMapMove = (e: React.PointerEvent) => {
     const p = toStage(e);
+    cursor.current = null; // the mouse takes over from the keyboard explore cursor
     setHover(null); // moving: no info
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => {
@@ -465,6 +474,35 @@ export function EarthApp() {
     else addPlace(place);
   }, [query, stops, playStop, addPlace]);
 
+  // ---- Audio navigation (blind and low vision users): explore the map by ear, plus spoken status and help.
+  const say = (text: string) => speak(text, () => setSpeaking(true), () => setSpeaking(false));
+  const toggleVoice = () => {
+    const on = !voiceOn;
+    setVoiceOn(on);
+    setPref("earthfm-voice", on ? "1" : "0");
+    setTimeout(() => speak(on ? "Voice on. Press H to hear every command." : "Voice off. Press V to turn it back on."), 0);
+  };
+  // Shift + arrows move an invisible pointer over the map; the hover card follows it and its place is read aloud.
+  const cursor = useRef<{ x: number; y: number } | null>(null);
+  const spokenHover = useRef<string | null>(null);
+  const moveCursor = (dx: number, dy: number) => {
+    const c = cursor.current ?? { x: W / 2, y: H / 2 };
+    const x = Math.max(10, Math.min(W - 10, c.x + dx * 60)), y = Math.max(10, Math.min(H - 10, c.y + dy * 60));
+    const edge = cursor.current && x === c.x && y === c.y;
+    cursor.current = { x, y };
+    const place = describe(x, y);
+    spokenHover.current = place.name;
+    setHover(place);
+    const i = stops.findIndex((st) => st.name === place.name);
+    say(`${edge ? "Edge of the map. " : ""}${place.name}${i >= 0 ? `, place ${i + 1} in your mixtape` : ""}.`);
+  };
+  const captionRef = useRef("");
+  const status = () =>
+    (nowPlaying ? `${flight ? "Flying to" : playing ? "Playing" : "Paused on"} ${nowPlaying.name}, ${LAYERS[layer].label}, place ${current + 1} of ${stops.length}.` : "Nothing playing yet.") +
+    ` Your mixtape has ${stops.length} ${stops.length === 1 ? "place" : "places"}. Volume ${Math.round(volume * 100)} percent.`;
+  const listMix = () =>
+    stops.length ? `Your mixtape: ${stops.map((st, i) => `${i + 1}, ${st.name}`).join(". ")}.` : "Your mixtape is empty. Hold Shift and use the arrow keys to explore, then press Enter to add a place.";
+
   // Keyboard map (matches the key hints in the Figma labels).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -477,7 +515,41 @@ export function EarthApp() {
         return;
       }
       const k = e.key.toLowerCase();
-      if (k === "m") setMenuOpen((o) => !o);
+      const onControl = !!t.closest("button, a, [role='slider'], [role='radio'], input, select");
+      if (e.shiftKey && k.startsWith("arrow")) {
+        e.preventDefault();
+        if (k === "arrowleft") moveCursor(-1, 0);
+        else if (k === "arrowright") moveCursor(1, 0);
+        else if (k === "arrowup") moveCursor(0, -1);
+        else moveCursor(0, 1);
+        return;
+      }
+      if (k === "v") toggleVoice();
+      else if (k === "h") speak(HELP, () => setSpeaking(true), () => setSpeaking(false)); // always speaks, so anyone can find the commands
+      else if (k === "w") say(status());
+      else if (k === "l") say(listMix());
+      else if (k === "r") say(captionRef.current);
+      else if (/^[1-9]$/.test(k)) { if (stops[Number(k) - 1]) goTo(Number(k) - 1); else say(`There is no place ${k}. Your mixtape has ${stops.length}.`); }
+      else if (k === "[") prev();
+      else if (k === "]") next();
+      else if (k === "enter" && !onControl && cursor.current) {
+        const place = describe(cursor.current.x, cursor.current.y);
+        const i = stops.findIndex((st) => st.name === place.name);
+        if (i >= 0) goTo(i);
+        else addPlace(place);
+      }
+      else if ((k === "arrowup" || k === "arrowdown") && !onControl) {
+        e.preventDefault();
+        const v = Math.max(0, Math.min(1, +(volume + (k === "arrowup" ? 0.1 : -0.1)).toFixed(2)));
+        setVolume(v);
+        if (voiceOn) say(`Volume ${Math.round(v * 100)} percent.`);
+      }
+      else if (k === "/") {
+        e.preventDefault();
+        document.querySelector<HTMLInputElement>('input[placeholder^="Search"]')?.focus();
+        say("Search. Type a place name and press Enter.");
+      }
+      else if (k === "m") setMenuOpen((o) => !o);
       else if (k === "b") setControlsHidden((h) => !h);
       else if (k === "p") setPlaylistHidden((h) => !h);
       else if (k === "n") next();
@@ -494,7 +566,7 @@ export function EarthApp() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [next, search, togglePlay, toggleHow, removeStop, stops.length]);
+  });
 
   // ---- derived view data
   const activeIdx = current;
@@ -529,7 +601,7 @@ export function EarthApp() {
   // (the song, the flight or the opening hint) is read when it changes, and is not repeated after every notice.
   // A song line starts with the place and the data, which sighted users read in the bar above the player.
   const songLine = !flight && nowPlaying && song ? `${nowPlaying.name}, ${layerLabel}${song.date >= 0 ? `, ${song.allDates[song.date]}` : ""}. ${song.caption}` : null;
-  const baseLine = songLine ?? (flight ? `Flying to ${flight.to.name}` : nowPlaying ? null : IDLE_CAPTION); // null while loading
+  const baseLine = songLine ?? (flight ? `Flying to ${flight.to.name}` : nowPlaying ? null : `Welcome to EarthFM. ${IDLE_CAPTION} Press H to hear every keyboard command, or V to turn the voice off.`); // null while loading
   const said = useRef<{ notice: string | null; base: string | null }>({ notice: null, base: null });
   useEffect(() => {
     const s = said.current;
@@ -549,7 +621,15 @@ export function EarthApp() {
     }
     speak(line, () => setSpeaking(true), () => setSpeaking(false));
   }, [notice, baseLine, voiceOn]);
-  useEffect(() => () => { stopSpeaking(); said.current = { notice: null, base: null }; }, []); // leaving the page (e.g. to the game) stops the voice
+  useEffect(() => () => { stopSpeaking(); said.current = { notice: null, base: null }; }, []);
+  useEffect(() => { captionRef.current = notice ?? baseLine ?? caption; });
+  // Read the place under the mouse (the hover card's text), so the map can be explored by ear. Not repeated while
+  // the pointer stays inside the same place; the keyboard cursor announces its own moves.
+  useEffect(() => {
+    if (!voiceOn || !hover || hover.name === spokenHover.current) return;
+    spokenHover.current = hover.name;
+    speak(hover.name, () => setSpeaking(true), () => setSpeaking(false));
+  }, [hover, voiceOn]); // leaving the page (e.g. to the game) stops the voice
   // "Place · layer · first date – last date" (the dates the song runs through)
   // by area: the one date being played; by time: the dates the song runs through
   const span = !song ? "" : song.date >= 0 ? ` · ${song.allDates[song.date]}` : ` · ${song.dates[0]} – ${song.dates[1]}`;
